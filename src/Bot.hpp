@@ -48,6 +48,7 @@ namespace tanzanite::bot {
     };
 
     inline Mode mode = Mode::Off;
+    inline bool macroMode = false;     // the in-level macro interface is on
     inline Macro macro;
     inline bool positionFix = true;
     inline bool stepper = false;
@@ -63,6 +64,8 @@ namespace tanzanite::bot {
     std::vector<std::filesystem::path> listMacros();
     bool saveMacro(std::string const& name);
     bool loadMacro(std::filesystem::path const& path);
+    // Loads the saved macro made for this level, if any
+    bool loadForLevel(GJGameLevel* level);
     std::string levelKey(GJGameLevel* level);
     std::string macroInfo();
 

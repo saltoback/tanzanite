@@ -7,20 +7,28 @@ A [Geode](https://geode-sdk.org) mod written in C++ (Windows, GD 2.2081, Geode 5
 ## Categories
 | Category | Options |
 |---|---|
-| Player | Noclip, Speedhack (speed 0.05 to 10, 0.5x / 1x / 1.5x / 2x presets) |
+| Player | Noclip, Speedhack (speed 0.05 to 10, presets), Show Hitboxes, Show Trajectory |
 | Level | Safe Mode, Auto Safe Mode (on by default), Accurate Percentage |
 | Labels | Cheat Indicator, FPS, CPS, Noclip Accuracy, Noclip Deaths, Attempts, Jumps, Level Time, Clock, Custom Message — adjustable corner, size and opacity |
-| Bot | Record / Play macros, saved macros list, Position Fix, Frame Stepper |
+| Bot | Enter / Exit Macro Mode, saved macros list, Position Fix, Show Trajectory |
 | Info | Shortcuts, version, repository link |
 
 Safe Mode makes the level count as a test run: no progress is saved.
 Auto Safe Mode turns it on for any attempt where noclip or the speedhack was used, even if you turn the cheat off before the end of the attempt.
 
-## Macro bot
-1. Open the menu, go to **Bot** and pick **Record**.
-2. Play the level until you beat it. Practice mode works: when you respawn at a checkpoint, everything recorded after it is removed automatically.
-3. When you beat the level, the macro is saved by itself (you can also name it and press **Save**).
-4. Pick **Play** and open the level: its macro is loaded automatically and plays from the start of every attempt.
+## Macro mode
+1. Open the menu, go to **Bot** and press **Enter Macro Mode**.
+2. Open a level: a macro interface appears at the bottom of the screen and practice mode turns on by itself.
+3. Everything is on that bar, no need to go back to the menu:
+   - **Record** / **Play**: switching restarts the level so the macro starts at the beginning
+   - **Pause** / **Resume** and **+1 Frame** (or the **F** key) to go frame by frame
+   - **Restart**, **Save**, **Exit**
+   - **Speed** `-` / `+` (click the value to turn the speedhack on or off)
+   - **Hitboxes**, **Trajectory**
+   - **+ CP** / **- CP** to place or remove practice checkpoints
+4. Beat the level while recording: the macro is saved by itself. Press **Play** to watch it.
+
+Clicks on the bar never make the player jump.
 
 Why it does not break:
 - Inputs are stored by physics tick (240 per second of level time), not by real time, so the speedhack and your FPS have no effect.
@@ -30,8 +38,8 @@ Why it does not break:
 
 Macros are saved as `.tzm` text files in the mod save folder (`geode/mods/saltoback.tanzanite/macros`).
 
-## Frame stepper
-Turn on **Frame Stepper** in the Bot tab. In a level the game freezes; press **F** to advance one physics tick, or hold **F** to keep stepping. Works while recording, so you can place inputs on exact frames.
+## Show Trajectory
+Shows where the player goes in the next 0.75 s if you hold the button (green) or release it (red), with a cross where it would die. Available in the Player tab and on the macro bar. For now the trajectory ignores portals, orbs and pads (it never activates anything in the level).
 
 The bot and the frame stepper count as cheats: with Auto Safe Mode, no progress is saved.
 

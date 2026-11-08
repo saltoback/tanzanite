@@ -1,5 +1,7 @@
 // Tanzanite — macro bot (record / play) and frame stepper
 #include "Bot.hpp"
+#include "Hud.hpp"
+#include "PlayerSnapshot.hpp"
 #include "State.hpp"
 
 #include <Geode/modify/GJBaseGameLayer.hpp>
@@ -57,47 +59,11 @@ namespace {
         fixes.push_back({frame, capture(gl->m_player1), capture(gl->m_player2)});
     }
 
-    // --- Full player snapshot for practice checkpoints ---------------------
-
-#define TZ_PLAYER_FIELDS(X) \
-    X(position) X(lastGroundedPos) X(yVelocity) X(platformerXVelocity) X(fallSpeed) \
-    X(gravity) X(gravityMod) X(isOnGround) X(isOnGround2) X(isOnGround3) X(isOnGround4) \
-    X(isUpsideDown) X(isDashing) X(dashX) X(dashY) X(dashAngle) X(dashStartTime) \
-    X(vehicleSize) X(playerSpeed) X(isSliding) X(isSlidingRight) X(isRotating) \
-    X(rotationSpeed) X(lastJumpTime) X(lastFlipTime) X(lastLandTime) X(isAccelerating) \
-    X(accelerationOrSpeed) X(jumpBuffered) X(stateJumpBuffered) X(yVelocityBeforeSlope) \
-    X(currentSlopeYVelocity) X(groundYVelocity) X(lastSpiderFlipTime) X(isGoingLeft) \
-    X(hasEverJumped)
-
-    struct FullState {
-#define TZ_DECLARE(f) decltype(PlayerObject::m_##f) f{};
-        TZ_PLAYER_FIELDS(TZ_DECLARE)
-#undef TZ_DECLARE
-        CCPoint nodePos;
-        float rotation = 0.f;
-    };
-
-    FullState snapshot(PlayerObject* p) {
-        FullState st;
-#define TZ_SAVE(f) st.f = p->m_##f;
-        TZ_PLAYER_FIELDS(TZ_SAVE)
-#undef TZ_SAVE
-        st.nodePos = p->getPosition();
-        st.rotation = p->getRotation();
-        return st;
-    }
-
-    void restore(PlayerObject* p, FullState const& st) {
-        p->setPosition(st.nodePos);
-        p->setRotation(st.rotation);
-#define TZ_LOAD(f) p->m_##f = st.f;
-        TZ_PLAYER_FIELDS(TZ_LOAD)
-#undef TZ_LOAD
-    }
+    // --- Practice checkpoints -----------------------------------------------
 
     struct CheckpointData {
         int frame;
-        FullState p1, p2;
+        snap::FullState p1, p2;
     };
     std::unordered_map<CheckpointObject*, CheckpointData> s_checkpoints;
 
@@ -285,6 +251,14 @@ bool bot::loadMacro(fs::path const& path) {
     return true;
 }
 
+bool bot::loadForLevel(GJGameLevel* level) {
+    auto key = levelKey(level);
+    for (auto const& path : listMacros()) {
+        if (path.filename().string().find("[" + key + "]") != std::string::npos && loadMacro(path)) return true;
+    }
+    return false;
+}
+
 std::string bot::macroInfo() {
     if (macro.inputs.empty()) return "No macro loaded";
     return fmt::format("{} - {} inputs - {:.1f}s",
@@ -315,14 +289,7 @@ void bot::onLevelInit(PlayLayer* pl) {
         macro.name = std::string(pl->m_level->m_levelName);
     } else if (mode == Mode::Play && macro.levelKey != key) {
         // Load the macro made for this level automatically
-        bool found = false;
-        for (auto const& path : listMacros()) {
-            if (path.filename().string().find("[" + key + "]") != std::string::npos && loadMacro(path)) {
-                found = true;
-                break;
-            }
-        }
-        if (found) notify("Macro loaded: " + macro.name, NotificationIcon::Success);
+        if (loadForLevel(pl->m_level)) notify("Macro loaded: " + macro.name, NotificationIcon::Success);
         else notify("No macro saved for this level", NotificationIcon::Warning);
     }
 }
@@ -386,6 +353,9 @@ class $modify(BotGameLayer, GJBaseGameLayer) {
     void handleButton(bool down, int button, bool isPlayer1) {
         if (!isPlayLayer(this)) return GJBaseGameLayer::handleButton(down, button, isPlayer1);
 
+        // A click on the macro interface is for its buttons, not for jumping
+        if (down && !s_injecting && hud::blocksPoint(geode::cocos::getMousePos())) return;
+
         if (down) tanzanite::onClick();
 
         // While playing, the macro is in control: ignore the player's own inputs
@@ -445,7 +415,7 @@ class $modify(BotPlayLayer, PlayLayer) {
     void storeCheckpoint(CheckpointObject* cp) {
         PlayLayer::storeCheckpoint(cp);
         if (!cp || bot::mode == bot::Mode::Off) return;
-        s_checkpoints[cp] = {currentFrame(this), snapshot(m_player1), snapshot(m_player2)};
+        s_checkpoints[cp] = {currentFrame(this), snap::snapshot(m_player1), snap::snapshot(m_player2)};
     }
 
     void loadFromCheckpoint(CheckpointObject* cp) {
@@ -453,7 +423,7 @@ class $modify(BotPlayLayer, PlayLayer) {
         if (!cp || bot::mode == bot::Mode::Off) return;
         auto it = s_checkpoints.find(cp);
         if (it == s_checkpoints.end()) return;
-        restore(m_player1, it->second.p1);
-        restore(m_player2, it->second.p2);
+        snap::restore(m_player1, it->second.p1);
+        snap::restore(m_player2, it->second.p2);
     }
 };

@@ -1,7 +1,9 @@
 // Tanzanite — menu key, hacks and Mega Hack style labels
 #include "Bot.hpp"
+#include "Hud.hpp"
 #include "Menu.hpp"
 #include "State.hpp"
+#include "Trajectory.hpp"
 
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/CCScheduler.hpp>
@@ -27,6 +29,8 @@ void tanzanite::load() {
     s.noclip          = m->getSavedValue<bool>("noclip", false);
     s.speedhack       = m->getSavedValue<bool>("speedhack", false);
     s.speed           = m->getSavedValue<float>("speed", 1.0f);
+    s.showHitboxes    = m->getSavedValue<bool>("show-hitboxes", false);
+    s.showTrajectory  = m->getSavedValue<bool>("show-trajectory", false);
     s.safeMode        = m->getSavedValue<bool>("safe-mode", false);
     s.autoSafe        = m->getSavedValue<bool>("auto-safe", true);
     s.accuratePct     = m->getSavedValue<bool>("accurate-pct", false);
@@ -52,6 +56,8 @@ void tanzanite::save() {
     m->setSavedValue("noclip", s.noclip);
     m->setSavedValue("speedhack", s.speedhack);
     m->setSavedValue("speed", s.speed);
+    m->setSavedValue("show-hitboxes", s.showHitboxes);
+    m->setSavedValue("show-trajectory", s.showTrajectory);
     m->setSavedValue("safe-mode", s.safeMode);
     m->setSavedValue("auto-safe", s.autoSafe);
     m->setSavedValue("accurate-pct", s.accuratePct);
@@ -208,12 +214,14 @@ public:
         if (s.lblMessage && !s.message.empty()) lines.push_back({s.message, PURPLE});
 
         // Bot status: always shown while the bot or the frame stepper is on
-        if (bot::mode == bot::Mode::Record) {
+        if (bot::macroMode) {
+            // the macro interface already shows the bot status
+        } else if (bot::mode == bot::Mode::Record) {
             lines.push_back({fmt::format("Recording - {} inputs", bot::macro.inputs.size()), {255, 110, 110}});
         } else if (bot::mode == bot::Mode::Play) {
             lines.push_back({fmt::format("Playing - {} / {}", bot::playIndex, bot::macro.inputs.size()), PURPLE});
         }
-        if (bot::stepper) lines.push_back({"Frame Stepper - F: next frame", {255, 220, 120}});
+        if (bot::stepper && !bot::macroMode) lines.push_back({"Paused - F: next frame", {255, 220, 120}});
 
         while (m_labels.size() < lines.size()) {
             auto lbl = CCLabelBMFont::create("", "bigFont.fnt");
@@ -252,11 +260,17 @@ public:
 // Level hooks: noclip, safe mode, accurate percentage, stats
 // ---------------------------------------------------------------------------
 class $modify(TanzanitePlayLayer, PlayLayer) {
+    struct Fields {
+        bool hitboxesOn = false;
+    };
+
     bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
         if (!PlayLayer::init(level, useReplay, dontCreateObjects)) return false;
         stats.reset();
         s_clicks.clear();
         bot::onLevelInit(this);
+        traj::onLevelInit(this);
+        hud::onLevelInit(this);
         if (auto labels = LabelsNode::create(this)) this->addChild(labels, 1000);
         return true;
     }
@@ -271,6 +285,8 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
     void onQuit() {
         stats.reset();
         bot::onQuit();
+        traj::onQuit();
+        hud::onQuit();
         PlayLayer::onQuit();
     }
 
@@ -286,10 +302,29 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
             stats.wasDying = stats.diedThisFrame;
         }
         stats.diedThisFrame = false;
+
+        // Hitboxes (the game's own debug draw)
+        if (s.showHitboxes) {
+            m_isDebugDrawEnabled = true;
+            if (m_debugDrawNode) m_debugDrawNode->setVisible(true);
+            this->updateDebugDraw();
+            m_fields->hitboxesOn = true;
+        } else if (m_fields->hitboxesOn) {
+            m_isDebugDrawEnabled = false;
+            if (m_debugDrawNode) m_debugDrawNode->clear();
+            m_fields->hitboxesOn = false;
+        }
+
+        traj::update(this);
     }
 
     // Noclip: ignore deaths (except the game's own anticheat spike)
     void destroyPlayer(PlayerObject* player, GameObject* object) {
+        // The trajectory's invisible player hit something: just stop its path
+        if (traj::simulating()) {
+            traj::onSimDeath();
+            return;
+        }
         if (s.noclip && object != m_anticheatSpike) {
             stats.diedThisFrame = true;
             stats.cheated = true;

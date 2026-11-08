@@ -21,6 +21,8 @@ namespace tanzanite {
         bool noclip = false;
         bool speedhack = false;
         float speed = 1.0f;
+        bool showHitboxes = false;
+        bool showTrajectory = false;
         // Level
         bool safeMode = false;
         bool autoSafe = true;
