@@ -1,4 +1,4 @@
-// Tanzanite — touche ², hacks et labels façon Mega Hack
+// Tanzanite — menu key, hacks and Mega Hack style labels
 #include "Menu.hpp"
 #include "State.hpp"
 
@@ -20,7 +20,7 @@ using namespace tanzanite;
 using Clock = std::chrono::steady_clock;
 
 // ---------------------------------------------------------------------------
-// Sauvegarde des options
+// Saving options
 // ---------------------------------------------------------------------------
 void tanzanite::load() {
     auto m = Mod::get();
@@ -71,8 +71,8 @@ void tanzanite::save() {
 }
 
 // ---------------------------------------------------------------------------
-// Touche ² : c'est la touche physique à gauche du 1 (scancode 0x29),
-// quelle que soit la disposition du clavier. Sur AZERTY son code est VK_OEM_7.
+// Menu key: the physical key left of "1" (scancode 0x29), whatever the
+// keyboard layout. It is "²" on AZERTY (VK_OEM_7) and "`" on QWERTY.
 // ---------------------------------------------------------------------------
 $on_mod(Loaded) {
     tanzanite::load();
@@ -80,10 +80,10 @@ $on_mod(Loaded) {
     KeyboardInputEvent().listen([](KeyboardInputData& data) -> bool {
         if (data.action != KeyboardInputData::Action::Press) return ListenerResult::Propagate;
 
-        bool isSquareKey = data.native.extra == 0x29 || data.native.code == 0xDE;
-        if (!isSquareKey) return ListenerResult::Propagate;
+        bool isMenuKey = data.native.extra == 0x29 || data.native.code == 0xDE;
+        if (!isMenuKey) return ListenerResult::Propagate;
 
-        // Ne pas réagir pendant qu'on écrit dans un champ de texte
+        // Don't react while typing in a text field
         if (CCIMEDispatcher::sharedDispatcher()->hasDelegate()) return ListenerResult::Propagate;
 
         geode::queueInMainThread([] { tanzanite::toggleMenu(); });
@@ -92,7 +92,7 @@ $on_mod(Loaded) {
 }
 
 // ---------------------------------------------------------------------------
-// Speedhack : on multiplie le temps écoulé de toute la boucle du jeu
+// Speedhack: scale the delta time of the whole game loop
 // ---------------------------------------------------------------------------
 class $modify(CCScheduler) {
     void update(float dt) {
@@ -102,7 +102,7 @@ class $modify(CCScheduler) {
 };
 
 // ---------------------------------------------------------------------------
-// Clics par seconde
+// Clicks per second
 // ---------------------------------------------------------------------------
 static std::deque<Clock::time_point> s_clicks;
 
@@ -114,7 +114,7 @@ class $modify(GJBaseGameLayer) {
 };
 
 // ---------------------------------------------------------------------------
-// Labels affichés pendant le niveau
+// Labels shown during a level
 // ---------------------------------------------------------------------------
 class LabelsNode : public CCNode {
     PlayLayer* m_pl = nullptr;
@@ -159,7 +159,7 @@ public:
     }
 
     void update(float) override {
-        // FPS en temps réel (indépendant du speedhack)
+        // Real-time FPS (not affected by the speedhack)
         auto now = Clock::now();
         m_acc += std::chrono::duration<double>(now - m_last).count();
         m_last = now;
@@ -170,29 +170,30 @@ public:
             m_acc = 0.0;
         }
 
-        // CPS : clics de la dernière seconde
+        // CPS: clicks during the last second
         while (!s_clicks.empty() && now - s_clicks.front() > std::chrono::seconds(1)) {
             s_clicks.pop_front();
         }
         stats.cps = static_cast<int>(s_clicks.size());
         if (stats.cps > stats.maxCps) stats.maxCps = stats.cps;
 
-        // Lignes à afficher
+        // Lines to show
         std::vector<std::pair<std::string, ccColor3B>> lines;
         const ccColor3B white = {255, 255, 255};
         if (s.lblCheat) {
-            if (cheating()) {
-                lines.push_back({safeActive() ? "Cheats (safe mode)" : "Cheats", {255, 80, 80}});
+            // Stays on "Cheats" for the whole attempt, even if the cheat is turned off
+            if (attemptCheated()) {
+                lines.push_back({safeActive() ? "Cheats (Safe Mode)" : "Cheats", {255, 80, 80}});
             } else {
                 lines.push_back({"Legit", {120, 255, 150}});
             }
         }
-        if (s.lblFps) lines.push_back({fmt::format("FPS : {}", static_cast<int>(m_fps + 0.5f)), white});
-        if (s.lblCps) lines.push_back({fmt::format("CPS : {} / {}", stats.cps, stats.maxCps), white});
-        if (s.lblNoclipAcc) lines.push_back({fmt::format("Precision : {:.2f}%", stats.noclipAccuracy()), white});
-        if (s.lblNoclipDeaths) lines.push_back({fmt::format("Morts : {}", stats.deaths), white});
-        if (s.lblAttempts) lines.push_back({fmt::format("Essai {}", m_pl->m_attempts), white});
-        if (s.lblJumps) lines.push_back({fmt::format("Sauts : {}", m_pl->m_jumps), white});
+        if (s.lblFps) lines.push_back({fmt::format("FPS: {}", static_cast<int>(m_fps + 0.5f)), white});
+        if (s.lblCps) lines.push_back({fmt::format("CPS: {} / {}", stats.cps, stats.maxCps), white});
+        if (s.lblNoclipAcc) lines.push_back({fmt::format("Accuracy: {:.2f}%", stats.noclipAccuracy()), white});
+        if (s.lblNoclipDeaths) lines.push_back({fmt::format("Deaths: {}", stats.deaths), white});
+        if (s.lblAttempts) lines.push_back({fmt::format("Attempt {}", m_pl->m_attempts), white});
+        if (s.lblJumps) lines.push_back({fmt::format("Jumps: {}", m_pl->m_jumps), white});
         if (s.lblTime) lines.push_back({formatTime(m_pl->m_gameState.m_levelTime), white});
         if (s.lblClock) lines.push_back({clockString(), white});
         if (s.lblMessage && !s.message.empty()) lines.push_back({s.message, PURPLE});
@@ -231,7 +232,7 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// Hooks du niveau : noclip, safe mode, pourcentage précis, stats
+// Level hooks: noclip, safe mode, accurate percentage, stats
 // ---------------------------------------------------------------------------
 class $modify(TanzanitePlayLayer, PlayLayer) {
     bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
@@ -242,14 +243,21 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
         return true;
     }
 
+    // New attempt: forget the cheats used in the previous one
     void resetLevel() {
         PlayLayer::resetLevel();
         stats.reset();
     }
 
+    void onQuit() {
+        stats.reset();
+        PlayLayer::onQuit();
+    }
+
     void postUpdate(float dt) {
         PlayLayer::postUpdate(dt);
         if (!m_isPaused && !m_hasCompletedLevel) {
+            if (cheating()) stats.cheated = true;
             stats.totalFrames++;
             if (stats.diedThisFrame) {
                 stats.deadFrames++;
@@ -260,23 +268,25 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
         stats.diedThisFrame = false;
     }
 
-    // Noclip : on ignore la mort (sauf le pic anti-triche du jeu)
+    // Noclip: ignore deaths (except the game's own anticheat spike)
     void destroyPlayer(PlayerObject* player, GameObject* object) {
         if (s.noclip && object != m_anticheatSpike) {
             stats.diedThisFrame = true;
+            stats.cheated = true;
             return;
         }
         if (safeActive()) m_isTestMode = true;
         PlayLayer::destroyPlayer(player, object);
     }
 
-    // Safe mode : le niveau compte comme un test → rien n'est enregistré
+    // Safe mode: the level counts as a test run, so nothing is saved.
+    // Uses the whole attempt: turning a cheat off before the end doesn't help.
     void levelComplete() {
         if (safeActive()) m_isTestMode = true;
         PlayLayer::levelComplete();
     }
 
-    // Pourcentage avec 2 décimales
+    // Percentage with 2 decimals
     void updateProgressbar() {
         PlayLayer::updateProgressbar();
         if (s.accuratePct && m_percentageLabel) {

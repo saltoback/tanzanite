@@ -1,7 +1,7 @@
 # Tanzanite
 
-Mod menu bleu-violet pour Geometry Dash. **Touche ² pour l'ouvrir ou le fermer.**
+Purple mod menu for Geometry Dash. **Press the key above Tab (`²` on AZERTY, `` ` `` on QWERTY) to open or close it.**
 
-- **Joueur** : noclip, speedhack (vitesse réglable)
-- **Niveau** : safe mode, safe mode auto, pourcentage précis
-- **Labels** : Cheat/Legit, FPS, CPS, précision et morts noclip, essais, sauts, temps, horloge, message perso ; position, taille et opacité réglables
+- **Player**: noclip, speedhack (adjustable speed)
+- **Level**: safe mode, auto safe mode, accurate percentage
+- **Labels**: cheat indicator, FPS, CPS, noclip accuracy and deaths, attempts, jumps, level time, clock, custom message; adjustable corner, size and opacity

@@ -1,6 +1,6 @@
 #pragma once
 
 namespace tanzanite {
-    // Ouvre le menu s'il est fermé, le ferme s'il est ouvert
+    // Opens the menu if it is closed, closes it if it is open
     void toggleMenu();
 }

@@ -1,27 +1,27 @@
-# Tanzanite — mod menu Geometry Dash
+# Tanzanite — Geometry Dash mod menu
 
-Mod [Geode](https://geode-sdk.org) en C++ (Windows, GD 2.2081, Geode 5.11.2).
+A [Geode](https://geode-sdk.org) mod written in C++ (Windows, GD 2.2081, Geode 5.11.2).
 
-**Touche `²` (au-dessus de Tab) pour ouvrir ou fermer le menu**, partout dans le jeu. `Échap` le ferme aussi.
+**Press the key above Tab (`²` on AZERTY, `` ` `` on QWERTY) to open or close the menu**, anywhere in the game. `Escape` also closes it.
 
-## Catégories
-| Catégorie | Options |
+## Categories
+| Category | Options |
 |---|---|
-| Joueur | Noclip, Speedhack (vitesse 0.05 à 10, boutons 0.5x / 1x / 1.5x / 2x) |
-| Niveau | Safe mode, Safe mode auto (activé par défaut), Pourcentage précis |
-| Labels | Cheat/Legit, FPS, CPS, Précision noclip, Morts noclip, Essais, Sauts, Temps du niveau, Horloge, Message perso — coin, taille et opacité réglables |
-| Infos | Raccourcis, version, lien du dépôt |
+| Player | Noclip, Speedhack (speed 0.05 to 10, 0.5x / 1x / 1.5x / 2x presets) |
+| Level | Safe Mode, Auto Safe Mode (on by default), Accurate Percentage |
+| Labels | Cheat Indicator, FPS, CPS, Noclip Accuracy, Noclip Deaths, Attempts, Jumps, Level Time, Clock, Custom Message — adjustable corner, size and opacity |
+| Info | Shortcuts, version, repository link |
 
-Le safe mode fait compter le niveau comme un test : rien n'est enregistré.
-Le safe mode auto l'active tout seul dès que le noclip ou le speedhack sont allumés.
+Safe Mode makes the level count as a test run: no progress is saved.
+Auto Safe Mode turns it on for any attempt where noclip or the speedhack was used, even if you turn the cheat off before the end of the attempt.
 
-## Compiler
-Chaque push sur GitHub lance le workflow **Build Tanzanite** (onglet Actions) qui produit `saltoback.tanzanite.geode`.
-Mets ce fichier dans `Geometry Dash/geode/mods/` (il faut aussi le mod **Node IDs**, que Geode propose d'installer).
+## Building
+Every push to GitHub runs the **Build Tanzanite** workflow (Actions tab), which produces `saltoback.tanzanite.geode`.
+Put that file in `Geometry Dash/geode/mods/` (the **Node IDs** mod is also required; Geode offers to install it).
 
-En local : Visual Studio 2022 (C++), CMake, Geode CLI + SDK (`geode sdk install`), puis `geode build`.
+Locally: Visual Studio 2022 (C++), CMake, Geode CLI + SDK (`geode sdk install`), then `geode build`.
 
-Remarque : le speedhack ne change pas la vitesse de la musique.
+Note: the speedhack does not change the music speed.
 
-## Licence
-Open source sous licence MIT (voir `LICENSE`).
+## License
+Open source under the MIT license (see `LICENSE`).

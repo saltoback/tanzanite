@@ -1,4 +1,4 @@
-// Tanzanite — état partagé (options sauvegardées + statistiques de partie)
+// Tanzanite — shared state (saved options + current attempt stats)
 #pragma once
 
 #include <Geode/Geode.hpp>
@@ -7,21 +7,21 @@
 namespace tanzanite {
     using namespace geode::prelude;
 
-    // Couleurs du thème
+    // Theme colors
     inline const ccColor3B PURPLE = {150, 110, 255};
     inline const ccColor4F PURPLE4 = {0.59f, 0.43f, 1.f, 1.f};
     inline const ccColor4F PANEL4 = {0.04f, 0.02f, 0.09f, 0.78f};
     inline const ccColor4F SIDEBAR4 = {0.10f, 0.06f, 0.22f, 0.70f};
 
-    // Coins de l'écran pour les labels
+    // Screen corners for the labels
     enum Corner { TopLeft = 0, TopRight, BottomLeft, BottomRight };
 
     struct State {
-        // Joueur
+        // Player
         bool noclip = false;
         bool speedhack = false;
         float speed = 1.0f;
-        // Niveau
+        // Level
         bool safeMode = false;
         bool autoSafe = true;
         bool accuratePct = false;
@@ -44,19 +44,20 @@ namespace tanzanite {
 
     inline State s;
 
-    // Statistiques de la partie en cours (remises à zéro à chaque essai)
+    // Stats for the current attempt (reset on every new attempt)
     struct Stats {
         int totalFrames = 0;
         int deadFrames = 0;
         int deaths = 0;
         bool diedThisFrame = false;
         bool wasDying = false;
+        bool cheated = false;     // a cheat was used at some point in this attempt
         int cps = 0;
         int maxCps = 0;
 
         void reset() {
             totalFrames = deadFrames = deaths = 0;
-            diedThisFrame = wasDying = false;
+            diedThisFrame = wasDying = cheated = false;
             maxCps = 0;
         }
         float noclipAccuracy() const {
@@ -67,12 +68,18 @@ namespace tanzanite {
 
     inline Stats stats;
 
+    // A cheat is turned on right now
     inline bool cheating() {
         return s.noclip || (s.speedhack && s.speed != 1.0f);
     }
 
+    // A cheat is on now, or was used earlier in this attempt
+    inline bool attemptCheated() {
+        return cheating() || stats.cheated;
+    }
+
     inline bool safeActive() {
-        return s.safeMode || (s.autoSafe && cheating());
+        return s.safeMode || (s.autoSafe && attemptCheated());
     }
 
     void load();

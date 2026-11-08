@@ -1,4 +1,4 @@
-// Tanzanite — le menu (catégories, fond transparent, bordures violettes, logo)
+// Tanzanite — the menu (categories, translucent panel, purple borders, logo)
 #include "Menu.hpp"
 #include "State.hpp"
 
@@ -19,20 +19,32 @@ namespace {
 
     ccColor4F rgba(float r, float g, float b, float a) { return {r, g, b, a}; }
 
-    // Rectangle aux coins arrondis
+    // CCDrawNode blends as premultiplied alpha by default, which turns
+    // translucent colors opaque. Use regular alpha blending instead.
+    CCDrawNode* makeDraw() {
+        auto dn = CCDrawNode::create();
+        dn->setBlendFunc({GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA});
+        return dn;
+    }
+
+    // Rounded rectangle
     void drawRoundedRect(CCDrawNode* dn, CCRect r, float rad, ccColor4F fill, float bw, ccColor4F border) {
         std::vector<CCPoint> pts;
         constexpr int SEG = 6;
         auto corner = [&](float cx, float cy, float a0) {
             for (int i = 0; i <= SEG; i++) {
                 float a = a0 + (PI / 2.f) * float(i) / float(SEG);
-                pts.push_back({cx + rad * std::cos(a), cy + rad * std::sin(a)});
+                CCPoint p = {cx + rad * std::cos(a), cy + rad * std::sin(a)};
+                // Skip duplicate points: they create spikes in the border
+                if (!pts.empty() && pts.back().getDistance(p) < 0.01f) continue;
+                pts.push_back(p);
             }
         };
         corner(r.getMaxX() - rad, r.getMaxY() - rad, 0.f);
         corner(r.getMinX() + rad, r.getMaxY() - rad, PI / 2.f);
         corner(r.getMinX() + rad, r.getMinY() + rad, PI);
         corner(r.getMaxX() - rad, r.getMinY() + rad, 3.f * PI / 2.f);
+        if (pts.size() > 1 && pts.back().getDistance(pts.front()) < 0.01f) pts.pop_back();
         dn->drawPolygon(pts.data(), static_cast<unsigned>(pts.size()), fill, bw, border);
     }
 
@@ -43,7 +55,7 @@ namespace {
         return lbl;
     }
 
-    // Interrupteur arrondi façon « switch »
+    // Rounded on/off switch
     class SwitchNode : public CCNode {
         CCDrawNode* m_draw = nullptr;
     public:
@@ -57,7 +69,7 @@ namespace {
             if (!CCNode::init()) return false;
             this->setContentSize({30.f, 16.f});
             this->setAnchorPoint({0.5f, 0.5f});
-            m_draw = CCDrawNode::create();
+            m_draw = makeDraw();
             this->addChild(m_draw);
             this->setOn(on);
             return true;
@@ -76,7 +88,7 @@ namespace {
         }
     };
 
-    // Onglet de catégorie dans la barre latérale
+    // Category tab in the sidebar
     class TabNode : public CCNode {
         CCDrawNode* m_draw = nullptr;
         CCLabelBMFont* m_label = nullptr;
@@ -91,7 +103,7 @@ namespace {
             if (!CCNode::init()) return false;
             this->setContentSize({86.f, 24.f});
             this->setAnchorPoint({0.5f, 0.5f});
-            m_draw = CCDrawNode::create();
+            m_draw = makeDraw();
             this->addChild(m_draw);
             m_label = makeLabel(text, "bigFont.fnt", 0.4f);
             m_label->setPosition({43.f, 12.f});
@@ -115,10 +127,10 @@ namespace {
 
     char const* cornerName(int c) {
         switch (c) {
-            case TopLeft: return "Haut gauche";
-            case TopRight: return "Haut droite";
-            case BottomLeft: return "Bas gauche";
-            default: return "Bas droite";
+            case TopLeft: return "Top left";
+            case TopRight: return "Top right";
+            case BottomLeft: return "Bottom left";
+            default: return "Bottom right";
         }
     }
 }
@@ -128,8 +140,8 @@ class TanzaniteMenu : public Popup {
 
     static constexpr float W = 420.f;
     static constexpr float H = 270.f;
-    static constexpr float CX = 124.f;    // début de la zone de contenu
-    static constexpr float CW = 284.f;    // largeur de la zone de contenu
+    static constexpr float CX = 124.f;    // left edge of the content area
+    static constexpr float CW = 284.f;    // width of the content area
 
     int m_tab = 0;
     std::vector<TabNode*> m_tabs;
@@ -154,28 +166,23 @@ class TanzaniteMenu : public Popup {
         if (!Popup::init(W, H)) return false;
         s_instance = this;
 
-        // Fond de l'écran à peine assombri, on masque le fond GD par défaut
+        // Barely dim the screen and hide the default GD popup background
         this->setOpacity(60);
         m_bgSprite->setVisible(false);
         m_closeBtn->setVisible(false);
         m_closeBtn->setEnabled(false);
 
-        // Panneau transparent avec bordure violette
-        auto bg = CCDrawNode::create();
+        // Translucent panel with a purple border
+        auto bg = makeDraw();
         m_mainLayer->addChild(bg, -1);
         drawRoundedRect(bg, {0.f, 0.f, W, H}, 12.f, PANEL4, 1.6f, PURPLE4);
         drawRoundedRect(bg, {10.f, 30.f, 98.f, H - 82.f}, 8.f, SIDEBAR4, 0.8f, rgba(0.59f, 0.43f, 1.f, 0.45f));
         drawRoundedRect(bg, {CX - 6.f, 30.f, CW + 8.f, H - 82.f}, 8.f, rgba(1.f, 1.f, 1.f, 0.03f), 0.8f, rgba(0.59f, 0.43f, 1.f, 0.30f));
         bg->drawSegment({14.f, H - 44.f}, {W - 14.f, H - 44.f}, 0.7f, rgba(0.59f, 0.43f, 1.f, 0.7f));
 
-        // En-tête : logo + titre
-        CCSprite* logo = nullptr;
-        if (CCSpriteFrameCache::get()->spriteFrameByName("tanzanite-logo.png"_spr)) {
-            logo = CCSprite::createWithSpriteFrameName("tanzanite-logo.png"_spr);
-        } else {
-            logo = CCSprite::create("tanzanite-logo.png"_spr);
-        }
-        if (logo) {
+        // Header: logo + title. The logo is a plain file in the mod resources
+        // (Geode returns a placeholder frame instead of null for unknown frames).
+        if (auto logo = CCSprite::create("tanzanite-logo.png"_spr)) {
             logo->setScale(30.f / logo->getContentSize().height);
             logo->setPosition({28.f, H - 22.f});
             m_mainLayer->addChild(logo);
@@ -185,12 +192,12 @@ class TanzaniteMenu : public Popup {
         title->setPosition({48.f, H - 21.f});
         m_mainLayer->addChild(title);
 
-        auto version = makeLabel("v1.1.0", "chatFont.fnt", 0.6f, {170, 160, 210});
+        auto version = makeLabel("v1.2.0", "chatFont.fnt", 0.6f, {170, 160, 210});
         version->setAnchorPoint({0.f, 0.5f});
         version->setPosition({48.f + title->getScaledContentSize().width + 6.f, H - 24.f});
         m_mainLayer->addChild(version);
 
-        auto hint = makeLabel("Touche au-dessus de Tab pour fermer", "chatFont.fnt", 0.55f, {150, 140, 190});
+        auto hint = makeLabel("Press the key above Tab to close", "chatFont.fnt", 0.55f, {150, 140, 190});
         hint->setAnchorPoint({1.f, 0.5f});
         hint->setPosition({W - 40.f, H - 23.f});
         m_mainLayer->addChild(hint);
@@ -204,8 +211,8 @@ class TanzaniteMenu : public Popup {
         closeBtn->setPosition({W - 20.f, H - 22.f});
         header->addChild(closeBtn);
 
-        // Catégories
-        char const* names[] = {"Joueur", "Niveau", "Labels", "Infos"};
+        // Categories
+        char const* names[] = {"Player", "Level", "Labels", "Info"};
         for (int i = 0; i < 4; i++) {
             auto tab = TabNode::create(names[i]);
             auto item = CCMenuItemExt::createSpriteExtra(tab, [this, i](auto) { this->buildTab(i); });
@@ -214,7 +221,7 @@ class TanzaniteMenu : public Popup {
             m_tabs.push_back(tab);
         }
 
-        // Zone de contenu (reconstruite à chaque changement d'onglet)
+        // Content area (rebuilt on every tab change)
         m_content = makeMenu();
         m_mainLayer->addChild(m_content);
         m_contentNodes = CCNode::create();
@@ -228,7 +235,7 @@ class TanzaniteMenu : public Popup {
         return true;
     }
 
-    // --- Briques de construction -------------------------------------------
+    // --- Building blocks ----------------------------------------------------
 
     void addText(char const* text, float x, float y, char const* font, float scale, ccColor3B color, float anchorX = 0.f) {
         auto lbl = makeLabel(text, font, scale, color);
@@ -275,7 +282,7 @@ class TanzaniteMenu : public Popup {
         return val;
     }
 
-    // --- Onglets ------------------------------------------------------------
+    // --- Tabs ---------------------------------------------------------------
 
     void buildTab(int tab) {
         m_tab = tab;
@@ -297,13 +304,13 @@ class TanzaniteMenu : public Popup {
     void buildPlayer() {
         float y = H - 66.f;
         addSwitch("Noclip", &s.noclip, CX, y, CW);
-        addText("Traverse les obstacles sans mourir", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        addText("Go through obstacles without dying", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
         addSwitch("Speedhack", &s.speedhack, CX, y, CW);
-        addText("Accelere ou ralentit le jeu (pas la musique)", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        addText("Speeds up or slows down the game (not the music)", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
 
-        addText("Vitesse", CX, y, "bigFont.fnt", 0.38f, {255, 255, 255});
+        addText("Speed", CX, y, "bigFont.fnt", 0.38f, {255, 255, 255});
         m_speedInput = TextInput::create(70.f, "1.0");
         m_speedInput->setCommonFilter(CommonFilter::Float);
         m_speedInput->setString(fmt::format("{:.2f}", s.speed).c_str());
@@ -332,29 +339,29 @@ class TanzaniteMenu : public Popup {
 
     void buildLevel() {
         float y = H - 66.f;
-        addSwitch("Safe mode", &s.safeMode, CX, y, CW);
-        addText("Le niveau compte comme un test : rien n'est enregistre", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        addSwitch("Safe Mode", &s.safeMode, CX, y, CW);
+        addText("The level counts as a test run: no progress is saved", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
-        addSwitch("Safe mode auto", &s.autoSafe, CX, y, CW);
-        addText("Active le safe mode des qu'un cheat est allume", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        addSwitch("Auto Safe Mode", &s.autoSafe, CX, y, CW);
+        addText("Turns on Safe Mode for any attempt where a cheat was used", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
-        addSwitch("Pourcentage precis", &s.accuratePct, CX, y, CW);
-        addText("Affiche le pourcentage avec 2 decimales", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        addSwitch("Accurate Percentage", &s.accuratePct, CX, y, CW);
+        addText("Shows the percentage with 2 decimals", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
     }
 
     void buildLabels() {
         struct Entry { char const* name; bool* value; };
         Entry entries[] = {
-            {"Cheat / Legit", &s.lblCheat},
+            {"Cheat Indicator", &s.lblCheat},
             {"FPS", &s.lblFps},
             {"CPS", &s.lblCps},
-            {"Precision noclip", &s.lblNoclipAcc},
-            {"Morts noclip", &s.lblNoclipDeaths},
-            {"Essais", &s.lblAttempts},
-            {"Sauts", &s.lblJumps},
-            {"Temps du niveau", &s.lblTime},
-            {"Horloge", &s.lblClock},
-            {"Message perso", &s.lblMessage},
+            {"Noclip Accuracy", &s.lblNoclipAcc},
+            {"Noclip Deaths", &s.lblNoclipDeaths},
+            {"Attempts", &s.lblAttempts},
+            {"Jumps", &s.lblJumps},
+            {"Level Time", &s.lblTime},
+            {"Clock", &s.lblClock},
+            {"Custom Message", &s.lblMessage},
         };
         float colW = (CW - 8.f) / 2.f;
         for (int i = 0; i < 10; i++) {
@@ -363,22 +370,22 @@ class TanzaniteMenu : public Popup {
             addSwitch(entries[i].name, entries[i].value, x, y, colW, 0.32f);
         }
 
-        float y = H - 64.f - 21.f * 5.f - 6.f;   // sous la grille
+        float y = H - 64.f - 21.f * 5.f - 6.f;   // below the grid
         m_cornerLbl = addStepper("Position", CX, y, CX + 150.f,
             [this]() { s.corner = (s.corner + 3) % 4; this->onLabelSettingChanged(); },
             [this]() { s.corner = (s.corner + 1) % 4; this->onLabelSettingChanged(); });
         y -= 22.f;
-        m_scaleLbl = addStepper("Taille", CX, y, CX + 88.f,
+        m_scaleLbl = addStepper("Size", CX, y, CX + 88.f,
             [this]() { s.labelScale = std::max(0.4f, s.labelScale - 0.1f); this->onLabelSettingChanged(); },
             [this]() { s.labelScale = std::min(2.5f, s.labelScale + 0.1f); this->onLabelSettingChanged(); });
         m_opacityLbl = addStepper("", CX + 142.f, y, CX + 230.f,
             [this]() { s.labelOpacity = std::max(30, s.labelOpacity - 25); this->onLabelSettingChanged(); },
             [this]() { s.labelOpacity = std::min(255, s.labelOpacity + 25); this->onLabelSettingChanged(); });
-        addText("Opacite", CX + 142.f, y, "bigFont.fnt", 0.3f, {255, 255, 255});
+        addText("Opacity", CX + 142.f, y, "bigFont.fnt", 0.3f, {255, 255, 255});
         y -= 22.f;
 
         addText("Message", CX, y, "bigFont.fnt", 0.36f, {255, 255, 255});
-        auto input = TextInput::create(220.f, "Ton message");
+        auto input = TextInput::create(220.f, "Your message");
         input->setString(s.message.c_str());
         input->setScale(0.7f);
         input->setPosition({CX + 172.f, y});
@@ -400,13 +407,13 @@ class TanzaniteMenu : public Popup {
 
     void buildInfo() {
         float y = H - 66.f;
-        addText("Tanzanite v1.1.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.2.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
-            "Ouvrir / fermer le menu : touche au-dessus de Tab (Echap pour fermer)",
-            "Safe mode auto : ta progression reste propre avec les cheats",
-            "Labels : visibles pendant les niveaux, coin au choix",
-            "Mod open source sous licence MIT",
+            "Open / close the menu: key above Tab (Escape also closes it)",
+            "Auto Safe Mode keeps your progress clean when you cheat",
+            "Labels: shown in levels, pick any screen corner",
+            "Open source mod under the MIT license",
             "github.com/saltoback/tanzanite",
         };
         for (auto line : lines) {
@@ -418,13 +425,13 @@ class TanzaniteMenu : public Popup {
     void refreshStatus() {
         if (!m_status) return;
         if (tanzanite::safeActive()) {
-            m_status->setString("Safe mode ACTIF : aucune progression sauvegardee");
+            m_status->setString("Safe Mode ON: no progress will be saved");
             m_status->setColor(PURPLE);
         } else if (tanzanite::cheating()) {
-            m_status->setString("Attention : cheats actifs SANS safe mode");
+            m_status->setString("Warning: cheats are on WITHOUT Safe Mode");
             m_status->setColor({255, 90, 90});
         } else {
-            m_status->setString("Aucun cheat actif");
+            m_status->setString("No cheats active");
             m_status->setColor({190, 190, 200});
         }
     }
