@@ -5,9 +5,9 @@
 	},
 	"id": "saltoback.tanzanite",
 	"name": "Tanzanite",
-	"version": "v1.2.0",
+	"version": "v1.3.0",
 	"developer": "saltoback",
-	"description": "Purple mod menu: noclip, speedhack, safe mode, labels. Press the key above Tab to open it.",
+	"description": "Purple mod menu: noclip, speedhack, safe mode, labels, macro bot and frame stepper. Press the key above Tab to open it.",
 	"resources": {
 		"sprites": [
 			"resources/*.png"

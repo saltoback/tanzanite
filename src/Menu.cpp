@@ -1,9 +1,11 @@
 // Tanzanite — the menu (categories, translucent panel, purple borders, logo)
 #include "Menu.hpp"
+#include "Bot.hpp"
 #include "State.hpp"
 
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/TextInput.hpp>
+#include <Geode/ui/Notification.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -88,37 +90,42 @@ namespace {
         }
     };
 
-    // Category tab in the sidebar
+    // Rounded pill button (sidebar tabs, bot mode buttons, actions)
     class TabNode : public CCNode {
         CCDrawNode* m_draw = nullptr;
         CCLabelBMFont* m_label = nullptr;
+        float m_w = 86.f, m_h = 24.f;
     public:
-        static TabNode* create(char const* text) {
+        static TabNode* create(char const* text, float w = 86.f, float h = 24.f, float scale = 0.4f) {
             auto ret = new TabNode();
-            if (ret->init(text)) { ret->autorelease(); return ret; }
+            if (ret->init(text, w, h, scale)) { ret->autorelease(); return ret; }
             delete ret;
             return nullptr;
         }
-        bool init(char const* text) {
+        bool init(char const* text, float w, float h, float scale) {
             if (!CCNode::init()) return false;
-            this->setContentSize({86.f, 24.f});
+            m_w = w;
+            m_h = h;
+            this->setContentSize({w, h});
             this->setAnchorPoint({0.5f, 0.5f});
             m_draw = makeDraw();
             this->addChild(m_draw);
-            m_label = makeLabel(text, "bigFont.fnt", 0.4f);
-            m_label->setPosition({43.f, 12.f});
+            m_label = makeLabel(text, "bigFont.fnt", scale);
+            m_label->limitLabelWidth(w - 8.f, scale, 0.1f);
+            m_label->setPosition({w / 2.f, h / 2.f});
             this->addChild(m_label);
             this->setSelected(false);
             return true;
         }
         void setSelected(bool sel) {
             m_draw->clear();
+            float rad = std::min(6.f, m_h / 2.f);
             if (sel) {
-                drawRoundedRect(m_draw, {0.f, 0.f, 86.f, 24.f}, 6.f,
+                drawRoundedRect(m_draw, {0.f, 0.f, m_w, m_h}, rad,
                     rgba(0.59f, 0.43f, 1.f, 0.85f), 0.8f, rgba(0.85f, 0.78f, 1.f, 1.f));
                 m_label->setColor({255, 255, 255});
             } else {
-                drawRoundedRect(m_draw, {0.f, 0.f, 86.f, 24.f}, 6.f,
+                drawRoundedRect(m_draw, {0.f, 0.f, m_w, m_h}, rad,
                     rgba(1.f, 1.f, 1.f, 0.04f), 0.6f, rgba(0.59f, 0.43f, 1.f, 0.35f));
                 m_label->setColor({190, 180, 225});
             }
@@ -152,6 +159,8 @@ class TanzaniteMenu : public Popup {
     CCLabelBMFont* m_scaleLbl = nullptr;
     CCLabelBMFont* m_opacityLbl = nullptr;
     TextInput* m_speedInput = nullptr;
+    int m_macroIndex = 0;
+    std::string m_macroName;
 
     CCMenu* makeMenu() {
         auto menu = CCMenu::create();
@@ -192,7 +201,7 @@ class TanzaniteMenu : public Popup {
         title->setPosition({48.f, H - 21.f});
         m_mainLayer->addChild(title);
 
-        auto version = makeLabel("v1.2.0", "chatFont.fnt", 0.6f, {170, 160, 210});
+        auto version = makeLabel("v1.3.0", "chatFont.fnt", 0.6f, {170, 160, 210});
         version->setAnchorPoint({0.f, 0.5f});
         version->setPosition({48.f + title->getScaledContentSize().width + 6.f, H - 24.f});
         m_mainLayer->addChild(version);
@@ -212,8 +221,8 @@ class TanzaniteMenu : public Popup {
         header->addChild(closeBtn);
 
         // Categories
-        char const* names[] = {"Player", "Level", "Labels", "Info"};
-        for (int i = 0; i < 4; i++) {
+        char const* names[] = {"Player", "Level", "Labels", "Bot", "Info"};
+        for (int i = 0; i < 5; i++) {
             auto tab = TabNode::create(names[i]);
             auto item = CCMenuItemExt::createSpriteExtra(tab, [this, i](auto) { this->buildTab(i); });
             item->setPosition({59.f, H - 66.f - 30.f * float(i)});
@@ -244,7 +253,8 @@ class TanzaniteMenu : public Popup {
         m_contentNodes->addChild(lbl);
     }
 
-    void addSwitch(char const* text, bool* value, float x, float y, float w, float textScale = 0.38f) {
+    void addSwitch(char const* text, bool* value, float x, float y, float w, float textScale = 0.38f,
+                   std::function<void(bool)> onChange = nullptr) {
         auto lbl = makeLabel(text, "bigFont.fnt", textScale);
         lbl->setAnchorPoint({0.f, 0.5f});
         lbl->setPosition({x, y});
@@ -252,9 +262,10 @@ class TanzaniteMenu : public Popup {
         m_contentNodes->addChild(lbl);
 
         auto sw = SwitchNode::create(*value);
-        auto item = CCMenuItemExt::createSpriteExtra(sw, [this, value, sw](auto) {
+        auto item = CCMenuItemExt::createSpriteExtra(sw, [this, value, sw, onChange](auto) {
             *value = !*value;
             sw->setOn(*value);
+            if (onChange) onChange(*value);
             tanzanite::save();
             this->refreshStatus();
         });
@@ -296,6 +307,7 @@ class TanzaniteMenu : public Popup {
             case 0: buildPlayer(); break;
             case 1: buildLevel(); break;
             case 2: buildLabels(); break;
+            case 3: buildBot(); break;
             default: buildInfo(); break;
         }
         this->refreshStatus();
@@ -405,14 +417,105 @@ class TanzaniteMenu : public Popup {
         tanzanite::save();
     }
 
+    // Pill button that runs an action
+    void addPill(char const* text, float x, float y, float w, bool selected, std::function<void()> cb) {
+        auto pill = TabNode::create(text, w, 18.f, 0.32f);
+        pill->setSelected(selected);
+        auto item = CCMenuItemExt::createSpriteExtra(pill, [cb](auto) { cb(); });
+        item->setPosition({x, y});
+        m_content->addChild(item);
+    }
+
+    void buildBot() {
+        using bot::Mode;
+        float y = H - 64.f;
+
+        // Mode: Off / Record / Play
+        addText("Mode", CX, y, "bigFont.fnt", 0.38f, {255, 255, 255});
+        struct ModeBtn { char const* name; Mode mode; };
+        ModeBtn modes[] = {{"Off", Mode::Off}, {"Record", Mode::Record}, {"Play", Mode::Play}};
+        for (int i = 0; i < 3; i++) {
+            Mode m = modes[i].mode;
+            addPill(modes[i].name, CX + 110.f + 60.f * float(i), y, 56.f, bot::mode == m, [this, m]() {
+                bot::setMode(m);
+                this->buildTab(3);
+            });
+        }
+        y -= 18.f;
+
+        char const* hint = "Pick Record or Play, then open a level";
+        if (bot::mode == Mode::Record) hint = "Beat the level (practice mode works): the macro saves itself";
+        if (bot::mode == Mode::Play) hint = "Open a level: its saved macro loads and plays by itself";
+        addText(hint, CX, y, "chatFont.fnt", 0.48f, {160, 150, 200});
+        y -= 14.f;
+        addText(bot::macroInfo().c_str(), CX, y, "chatFont.fnt", 0.55f, {220, 210, 255});
+        y -= 22.f;
+
+        // Saved macros: browse and load
+        auto files = bot::listMacros();
+        if (m_macroIndex >= int(files.size())) m_macroIndex = 0;
+        addText("Saved", CX, y, "bigFont.fnt", 0.36f, {255, 255, 255});
+        std::string current = files.empty() ? "No saved macros" : files[m_macroIndex].stem().string();
+        auto fileLbl = makeLabel(current.c_str(), "chatFont.fnt", 0.55f, {220, 210, 255});
+        fileLbl->limitLabelWidth(120.f, 0.55f, 0.1f);
+        fileLbl->setPosition({CX + 130.f, y});
+        m_contentNodes->addChild(fileLbl);
+        if (!files.empty()) {
+            int count = int(files.size());
+            addSmallButton("<", CX + 58.f, y, [this, count]() { m_macroIndex = (m_macroIndex + count - 1) % count; this->buildTab(3); }, 0.4f);
+            addSmallButton(">", CX + 202.f, y, [this, count]() { m_macroIndex = (m_macroIndex + 1) % count; this->buildTab(3); }, 0.4f);
+            auto path = files[m_macroIndex];
+            addPill("Load", CX + CW - 26.f, y, 48.f, false, [this, path]() {
+                if (bot::loadMacro(path)) {
+                    Notification::create("Macro loaded: " + bot::macro.name, NotificationIcon::Success)->show();
+                } else {
+                    Notification::create("Could not load this macro", NotificationIcon::Error)->show();
+                }
+                this->buildTab(3);
+            });
+        }
+        y -= 24.f;
+
+        // Save the current macro under a name, or clear it
+        if (m_macroName.empty()) m_macroName = bot::macro.name;
+        auto nameInput = TextInput::create(170.f, "Macro name");
+        nameInput->setString(m_macroName.c_str());
+        nameInput->setScale(0.65f);
+        nameInput->setPosition({CX + 56.f, y});
+        nameInput->setCallback([this](std::string const& str) { m_macroName = str; });
+        m_contentNodes->addChild(nameInput);
+        addPill("Save", CX + 152.f, y, 48.f, false, [this]() {
+            if (bot::macro.inputs.empty()) {
+                Notification::create("Nothing to save yet", NotificationIcon::Warning)->show();
+            } else if (bot::saveMacro(m_macroName)) {
+                Notification::create("Macro saved: " + bot::macro.name, NotificationIcon::Success)->show();
+            } else {
+                Notification::create("Could not save the macro", NotificationIcon::Error)->show();
+            }
+            this->buildTab(3);
+        });
+        addPill("Clear", CX + 206.f, y, 48.f, false, [this]() {
+            bot::macro.clear();
+            this->buildTab(3);
+        });
+        y -= 26.f;
+
+        addSwitch("Position Fix", &bot::positionFix, CX, y, CW, 0.36f);
+        addText("Restores the exact player state at every input: no desync", CX, y - 12.f, "chatFont.fnt", 0.45f, {160, 150, 200});
+        y -= 30.f;
+        addSwitch("Frame Stepper", &bot::stepper, CX, y, CW, 0.36f, [](bool on) { bot::setStepper(on); });
+        addText("In a level, F advances one frame (hold F to keep going)", CX, y - 12.f, "chatFont.fnt", 0.45f, {160, 150, 200});
+    }
+
     void buildInfo() {
         float y = H - 66.f;
-        addText("Tanzanite v1.2.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.3.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
             "Open / close the menu: key above Tab (Escape also closes it)",
             "Auto Safe Mode keeps your progress clean when you cheat",
             "Labels: shown in levels, pick any screen corner",
+            "Bot: record a level once, then play it back at any speed",
             "Open source mod under the MIT license",
             "github.com/saltoback/tanzanite",
         };

@@ -68,10 +68,17 @@ namespace tanzanite {
 
     inline Stats stats;
 
+    // Set by the bot (Bot.cpp)
+    inline bool botPlaying = false;
+    inline bool botStepper = false;
+
     // A cheat is turned on right now
     inline bool cheating() {
-        return s.noclip || (s.speedhack && s.speed != 1.0f);
+        return s.noclip || (s.speedhack && s.speed != 1.0f) || botPlaying || botStepper;
     }
+
+    // Counts a click for the CPS label (Hacks.cpp)
+    void onClick();
 
     // A cheat is on now, or was used earlier in this attempt
     inline bool attemptCheated() {

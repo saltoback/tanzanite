@@ -1,9 +1,9 @@
 // Tanzanite — menu key, hacks and Mega Hack style labels
+#include "Bot.hpp"
 #include "Menu.hpp"
 #include "State.hpp"
 
 #include <Geode/modify/PlayLayer.hpp>
-#include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/utils/Keyboard.hpp>
 
@@ -44,6 +44,7 @@ void tanzanite::load() {
     s.corner          = m->getSavedValue<int>("corner", TopLeft);
     s.labelScale      = m->getSavedValue<float>("label-scale", 1.0f);
     s.labelOpacity    = m->getSavedValue<int>("label-opacity", 180);
+    bot::loadSettings();
 }
 
 void tanzanite::save() {
@@ -68,6 +69,7 @@ void tanzanite::save() {
     m->setSavedValue("corner", s.corner);
     m->setSavedValue("label-scale", s.labelScale);
     m->setSavedValue("label-opacity", s.labelOpacity);
+    bot::saveSettings();
 }
 
 // ---------------------------------------------------------------------------
@@ -78,13 +80,22 @@ $on_mod(Loaded) {
     tanzanite::load();
 
     KeyboardInputEvent().listen([](KeyboardInputData& data) -> bool {
-        if (data.action != KeyboardInputData::Action::Press) return ListenerResult::Propagate;
-
-        bool isMenuKey = data.native.extra == 0x29 || data.native.code == 0xDE;
-        if (!isMenuKey) return ListenerResult::Propagate;
+        using Action = KeyboardInputData::Action;
+        if (data.action == Action::Release) return ListenerResult::Propagate;
 
         // Don't react while typing in a text field
         if (CCIMEDispatcher::sharedDispatcher()->hasDelegate()) return ListenerResult::Propagate;
+
+        // Frame stepper: F advances one physics tick (hold it to keep stepping)
+        if (bot::stepper && data.key == KEY_F && PlayLayer::get()) {
+            bot::stepRequests++;
+            return ListenerResult::Stop;
+        }
+
+        if (data.action != Action::Press) return ListenerResult::Propagate;
+
+        bool isMenuKey = data.native.extra == 0x29 || data.native.code == 0xDE;
+        if (!isMenuKey) return ListenerResult::Propagate;
 
         geode::queueInMainThread([] { tanzanite::toggleMenu(); });
         return ListenerResult::Stop;
@@ -104,14 +115,12 @@ class $modify(CCScheduler) {
 // ---------------------------------------------------------------------------
 // Clicks per second
 // ---------------------------------------------------------------------------
+// (the handleButton hook lives in Bot.cpp and calls this)
 static std::deque<Clock::time_point> s_clicks;
 
-class $modify(GJBaseGameLayer) {
-    void handleButton(bool down, int button, bool isPlayer1) {
-        GJBaseGameLayer::handleButton(down, button, isPlayer1);
-        if (down) s_clicks.push_back(Clock::now());
-    }
-};
+void tanzanite::onClick() {
+    s_clicks.push_back(Clock::now());
+}
 
 // ---------------------------------------------------------------------------
 // Labels shown during a level
@@ -198,6 +207,14 @@ public:
         if (s.lblClock) lines.push_back({clockString(), white});
         if (s.lblMessage && !s.message.empty()) lines.push_back({s.message, PURPLE});
 
+        // Bot status: always shown while the bot or the frame stepper is on
+        if (bot::mode == bot::Mode::Record) {
+            lines.push_back({fmt::format("Recording - {} inputs", bot::macro.inputs.size()), {255, 110, 110}});
+        } else if (bot::mode == bot::Mode::Play) {
+            lines.push_back({fmt::format("Playing - {} / {}", bot::playIndex, bot::macro.inputs.size()), PURPLE});
+        }
+        if (bot::stepper) lines.push_back({"Frame Stepper - F: next frame", {255, 220, 120}});
+
         while (m_labels.size() < lines.size()) {
             auto lbl = CCLabelBMFont::create("", "bigFont.fnt");
             this->addChild(lbl);
@@ -239,6 +256,7 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
         if (!PlayLayer::init(level, useReplay, dontCreateObjects)) return false;
         stats.reset();
         s_clicks.clear();
+        bot::onLevelInit(this);
         if (auto labels = LabelsNode::create(this)) this->addChild(labels, 1000);
         return true;
     }
@@ -247,10 +265,12 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
     void resetLevel() {
         PlayLayer::resetLevel();
         stats.reset();
+        bot::onReset(this);
     }
 
     void onQuit() {
         stats.reset();
+        bot::onQuit();
         PlayLayer::onQuit();
     }
 
@@ -283,6 +303,7 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
     // Uses the whole attempt: turning a cheat off before the end doesn't help.
     void levelComplete() {
         if (safeActive()) m_isTestMode = true;
+        bot::onLevelComplete(this);
         PlayLayer::levelComplete();
     }
 
