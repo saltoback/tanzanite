@@ -5,9 +5,14 @@
 	},
 	"id": "saltoback.tanzanite",
 	"name": "Tanzanite",
-	"version": "v1.0.1",
+	"version": "v1.1.0",
 	"developer": "saltoback",
-	"description": "Mod menu tanzanite : noclip, speedhack, safe mode, pourcentage précis.",
+	"description": "Mod menu tanzanite : noclip, speedhack, safe mode, labels. Touche ² pour l'ouvrir.",
+	"resources": {
+		"sprites": [
+			"resources/*.png"
+		]
+	},
 	"dependencies": {
 		"geode.node-ids": ">=v1.23.3"
 	}
