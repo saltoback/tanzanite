@@ -169,7 +169,13 @@ class TanzaniteMenu : public Popup {
         bg->drawSegment({14.f, H - 44.f}, {W - 14.f, H - 44.f}, 0.7f, rgba(0.59f, 0.43f, 1.f, 0.7f));
 
         // En-tête : logo + titre
-        if (auto logo = CCSprite::createWithSpriteFrameName("tanzanite-logo.png"_spr)) {
+        CCSprite* logo = nullptr;
+        if (CCSpriteFrameCache::get()->spriteFrameByName("tanzanite-logo.png"_spr)) {
+            logo = CCSprite::createWithSpriteFrameName("tanzanite-logo.png"_spr);
+        } else {
+            logo = CCSprite::create("tanzanite-logo.png"_spr);
+        }
+        if (logo) {
             logo->setScale(30.f / logo->getContentSize().height);
             logo->setPosition({28.f, H - 22.f});
             m_mainLayer->addChild(logo);
