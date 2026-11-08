@@ -1,0 +1,30 @@
+name: Build Tanzanite
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+jobs:
+  build:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build du mod
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          combine: true
+          target: Win64
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    needs: ['build']
+    steps:
+      - uses: geode-sdk/build-geode-mod/combine@main
+        id: build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tanzanite
+          path: ${{ steps.build.outputs.build-output }}

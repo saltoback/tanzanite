@@ -1,0 +1,14 @@
+{
+	"geode": "5.11.2",
+	"gd": {
+		"win": "2.2081"
+	},
+	"id": "saltoback.tanzanite",
+	"name": "Tanzanite",
+	"version": "v1.0.0",
+	"developer": "saltoback",
+	"description": "Mod menu tanzanite : noclip, speedhack, safe mode, pourcentage précis.",
+	"dependencies": {
+		"geode.node-ids": ">=v1.23.3"
+	}
+}
