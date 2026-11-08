@@ -9,7 +9,7 @@ namespace tanzanite::hud {
     void exitMacroMode();
 
     // Level events, called from the PlayLayer hooks
-    void onLevelInit(geode::prelude::PlayLayer* pl);
+    void onLevelInit(PlayLayer* pl);
     void onQuit();
 
     // True when a screen point is on the interface (clicks there must not jump)

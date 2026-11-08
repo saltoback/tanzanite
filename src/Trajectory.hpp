@@ -8,7 +8,7 @@
 namespace tanzanite::traj {
     bool simulating();
     void onSimDeath();
-    void onLevelInit(geode::prelude::PlayLayer* pl);
+    void onLevelInit(PlayLayer* pl);
     void onQuit();
-    void update(geode::prelude::PlayLayer* pl);
+    void update(PlayLayer* pl);
 }
