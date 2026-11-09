@@ -542,7 +542,7 @@ class $modify(TanzaniteEditorUI, EditorUI) {
     }
 
     void applySimpleMode() {
-        auto f = &*m_fields;
+        auto f = m_fields.operator->();
         bool on = s.simpleEditor;
         if (f->togglePill) f->togglePill->setSelected(on);
         if (f->panel) f->panel->setVisible(on && f->uiShown);
