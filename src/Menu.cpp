@@ -90,12 +90,12 @@ class TanzaniteMenu : public Popup {
         title->setPosition({48.f, H - 21.f});
         m_mainLayer->addChild(title);
 
-        auto version = makeLabel("v1.4.0", "chatFont.fnt", 0.6f, {170, 160, 210});
+        auto version = makeLabel("v1.5.0", "chatFont.fnt", 0.6f, {170, 160, 210});
         version->setAnchorPoint({0.f, 0.5f});
         version->setPosition({48.f + title->getScaledContentSize().width + 6.f, H - 24.f});
         m_mainLayer->addChild(version);
 
-        auto hint = makeLabel("Press the key above Tab to close", "chatFont.fnt", 0.55f, {150, 140, 190});
+        auto hint = makeLabel(CLOSE_HINT, "chatFont.fnt", 0.55f, {150, 140, 190});
         hint->setAnchorPoint({1.f, 0.5f});
         hint->setPosition({W - 40.f, H - 23.f});
         m_mainLayer->addChild(hint);
@@ -409,10 +409,10 @@ class TanzaniteMenu : public Popup {
 
     void buildInfo() {
         float y = H - 66.f;
-        addText("Tanzanite v1.4.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.5.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
-            "Open / close the menu: key above Tab (Escape also closes it)",
+            OPEN_HINT,
             "Auto Safe Mode keeps your progress clean when you cheat",
             "Labels: shown in levels, pick any screen corner",
             "Bot: Enter Macro Mode, then everything is in the level",
@@ -466,7 +466,7 @@ public:
         }
         if (auto menu = TanzaniteMenu::create()) {
             menu->show();
-            PlatformToolbox::showCursor();
+            tanzanite::showCursor();
         }
     }
 };

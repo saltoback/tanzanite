@@ -1,11 +1,12 @@
 {
 	"geode": "5.11.2",
 	"gd": {
-		"win": "2.2081"
+		"win": "2.2081",
+		"android": "2.2081"
 	},
 	"id": "saltoback.tanzanite",
 	"name": "Tanzanite",
-	"version": "v1.4.0",
+	"version": "v1.5.0",
 	"developer": "saltoback",
 	"description": "Purple mod menu: noclip, speedhack, labels, macro mode with an in-level interface, frame stepper, hitboxes, trajectory. Press the key above Tab to open it.",
 	"resources": {

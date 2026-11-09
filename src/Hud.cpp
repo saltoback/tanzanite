@@ -79,7 +79,7 @@ class MacroHud : public CCNode {
         auto pill = PillNode::create(text, w, 16.f, 0.3f);
         auto item = CCMenuItemExt::createSpriteExtra(pill, [cb](auto) {
             cb();
-            PlatformToolbox::showCursor();
+            tanzanite::showCursor();
         });
         item->setPosition({x + w / 2.f, y});
         m_menu->addChild(item);
@@ -181,7 +181,7 @@ public:
 
         this->scheduleUpdate();
         this->update(0.f);
-        PlatformToolbox::showCursor();
+        tanzanite::showCursor();
         return true;
     }
 
@@ -222,7 +222,7 @@ public:
         m_cursorTimer += dt;
         if (m_cursorTimer > 0.5f) {
             m_cursorTimer = 0.f;
-            if (pl && !pl->m_isPaused) PlatformToolbox::showCursor();
+            if (pl && !pl->m_isPaused) tanzanite::showCursor();
         }
     }
 };

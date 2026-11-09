@@ -82,6 +82,22 @@ namespace tanzanite {
     // Counts a click for the CPS label (Hacks.cpp)
     void onClick();
 
+    // How to open / close the menu on this platform
+#ifdef GEODE_IS_MOBILE
+    inline constexpr char const* CLOSE_HINT = "Tap the gem button to close";
+    inline constexpr char const* OPEN_HINT = "Open / close the menu: tap the gem button (drag it to move it)";
+#else
+    inline constexpr char const* CLOSE_HINT = "Press the key above Tab to close";
+    inline constexpr char const* OPEN_HINT = "Open / close the menu: key above Tab (Escape also closes it)";
+#endif
+
+    // The mouse cursor only exists on PC
+    inline void showCursor() {
+#ifdef GEODE_IS_DESKTOP
+        PlatformToolbox::showCursor();
+#endif
+    }
+
     // A cheat is on now, or was used earlier in this attempt
     inline bool attemptCheated() {
         return cheating() || stats.cheated;

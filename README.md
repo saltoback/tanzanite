@@ -1,8 +1,9 @@
 # Tanzanite — Geometry Dash mod menu
 
-A [Geode](https://geode-sdk.org) mod written in C++ (Windows, GD 2.2081, Geode 5.11.2).
+A [Geode](https://geode-sdk.org) mod written in C++ (Windows and Android, GD 2.2081, Geode 5.11.2).
 
 **Press the key above Tab (`²` on AZERTY, `` ` `` on QWERTY) to open or close the menu**, anywhere in the game. `Escape` also closes it.
+On **Android**, tap the floating gem button instead (drag it to move it anywhere on the screen).
 
 ## Categories
 | Category | Options |

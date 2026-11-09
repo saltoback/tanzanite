@@ -354,7 +354,9 @@ class $modify(BotGameLayer, GJBaseGameLayer) {
         if (!isPlayLayer(this)) return GJBaseGameLayer::handleButton(down, button, isPlayer1);
 
         // A click on the macro interface is for its buttons, not for jumping
+#ifdef GEODE_IS_DESKTOP
         if (down && !s_injecting && hud::blocksPoint(geode::cocos::getMousePos())) return;
+#endif
 
         if (down) tanzanite::onClick();
 
