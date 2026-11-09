@@ -38,6 +38,7 @@ namespace tanzanite {
         bool lblTime = false;
         bool lblClock = false;
         bool lblMessage = false;
+        bool lblBestRun = false;
         std::string message = "Tanzanite";
         int corner = TopLeft;
         float labelScale = 1.0f;
@@ -69,6 +70,19 @@ namespace tanzanite {
     };
 
     inline Stats stats;
+
+    // Best run of the current level session (from a start % to a death %)
+    struct BestRun {
+        float start = 0.f;      // where the current attempt started
+        float bestFrom = 0.f;
+        float bestTo = -1.f;    // -1: no run yet
+        void clear() { start = 0.f; bestFrom = 0.f; bestTo = -1.f; }
+        void onRunEnd(float end) {
+            if (end - start > bestTo - bestFrom) { bestFrom = start; bestTo = end; }
+        }
+    };
+
+    inline BestRun bestRun;
 
     // Set by the bot (Bot.cpp)
     inline bool botPlaying = false;

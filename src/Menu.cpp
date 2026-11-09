@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <functional>
+#include <iterator>
 #include <vector>
 
 using namespace geode::prelude;
@@ -31,16 +32,29 @@ namespace {
     }
 }
 
+// The menu is a bar of categories at the top of the screen. Clicking a
+// category unrolls its window right below it; clicking it again rolls it up.
 class TanzaniteMenu : public Popup {
     static inline TanzaniteMenu* s_instance = nullptr;
 
-    static constexpr float W = 420.f;
-    static constexpr float H = 270.f;
-    static constexpr float CX = 124.f;    // left edge of the content area
-    static constexpr float CW = 284.f;    // width of the content area
+    static constexpr int TABS = 5;
+    static constexpr float BAR_H = 24.f;      // height of the category bar
+    static constexpr float TAB_W = 64.f;      // width of a category button
+    static constexpr float GAP = 6.f;
+    static constexpr float WW = 312.f;        // window width
+    static constexpr float CX = 14.f;         // left edge of the window content
+    static constexpr float CW = 284.f;        // width of the window content
+    // Window height for each category
+    static constexpr float WH[TABS] = {188.f, 134.f, 236.f, 190.f, 164.f};
 
-    int m_tab = 0;
+    CCSize m_win;
+    CCNode* m_bar = nullptr;
+    int m_tab = -1;                           // -1: no window open
+    float m_top = 0.f;                        // y of the first row in the window
     std::vector<PillNode*> m_tabs;
+    std::vector<CCNode*> m_tabItems;
+    CCNode* m_window = nullptr;
+    CCDrawNode* m_windowBg = nullptr;
     CCMenu* m_content = nullptr;
     CCNode* m_contentNodes = nullptr;
     CCLabelBMFont* m_status = nullptr;
@@ -51,9 +65,9 @@ class TanzaniteMenu : public Popup {
     int m_macroIndex = 0;
     std::string m_macroName;
 
-    CCMenu* makeMenu() {
+    CCMenu* makeMenu(CCSize size) {
         auto menu = CCMenu::create();
-        menu->setContentSize({W, H});
+        menu->setContentSize(size);
         menu->ignoreAnchorPointForPosition(false);
         menu->setAnchorPoint({0.f, 0.f});
         menu->setPosition({0.f, 0.f});
@@ -61,76 +75,137 @@ class TanzaniteMenu : public Popup {
     }
 
     bool initMenu() {
-        if (!Popup::init(W, H)) return false;
+        m_win = CCDirector::get()->getWinSize();
+        if (!Popup::init(m_win.width, m_win.height)) return false;
         s_instance = this;
 
-        // Barely dim the screen and hide the default GD popup background
-        this->setOpacity(60);
+        // No GD popup box: only the bar and the windows, over a light dim
+        this->setOpacity(70);
         m_bgSprite->setVisible(false);
         m_closeBtn->setVisible(false);
         m_closeBtn->setEnabled(false);
 
-        // Translucent panel with a purple border
-        auto bg = makeDraw();
-        m_mainLayer->addChild(bg, -1);
-        drawRoundedRect(bg, {0.f, 0.f, W, H}, 12.f, PANEL4, 1.6f, PURPLE4);
-        drawRoundedRect(bg, {10.f, 30.f, 98.f, H - 82.f}, 8.f, SIDEBAR4, 0.8f, rgba(0.59f, 0.43f, 1.f, 0.45f));
-        drawRoundedRect(bg, {CX - 6.f, 30.f, CW + 8.f, H - 82.f}, 8.f, rgba(1.f, 1.f, 1.f, 0.03f), 0.8f, rgba(0.59f, 0.43f, 1.f, 0.30f));
-        bg->drawSegment({14.f, H - 44.f}, {W - 14.f, H - 44.f}, 0.7f, rgba(0.59f, 0.43f, 1.f, 0.7f));
+        // --- Category bar ---------------------------------------------------
+        float logoW = 112.f;
+        float barW = logoW + GAP + TABS * (TAB_W + GAP) + 22.f;
+        m_bar = CCNode::create();
+        m_bar->setContentSize({barW, BAR_H});
+        m_bar->setAnchorPoint({0.5f, 1.f});
+        m_bar->ignoreAnchorPointForPosition(false);
+        m_bar->setPosition({m_win.width / 2.f, m_win.height - 6.f});
+        m_bar->setScale(std::min(1.f, (m_win.width - 12.f) / barW));
+        m_mainLayer->addChild(m_bar);
 
-        // Header: logo + title. The logo is a plain file in the mod resources
-        // (Geode returns a placeholder frame instead of null for unknown frames).
+        // Logo block
+        auto logoBg = makeDraw();
+        drawRoundedRect(logoBg, {0.f, 0.f, logoW, BAR_H}, 7.f, PANEL4, 1.4f, PURPLE4);
+        m_bar->addChild(logoBg);
         if (auto logo = CCSprite::create("tanzanite-logo.png"_spr)) {
-            logo->setScale(30.f / logo->getContentSize().height);
-            logo->setPosition({28.f, H - 22.f});
-            m_mainLayer->addChild(logo);
+            logo->setScale(20.f / logo->getContentSize().height);
+            logo->setPosition({14.f, BAR_H / 2.f});
+            m_bar->addChild(logo);
         }
-        auto title = makeLabel("Tanzanite", "bigFont.fnt", 0.6f, PURPLE);
+        auto title = makeLabel("Tanzanite", "bigFont.fnt", 0.38f, PURPLE);
         title->setAnchorPoint({0.f, 0.5f});
-        title->setPosition({48.f, H - 21.f});
-        m_mainLayer->addChild(title);
+        title->setPosition({28.f, BAR_H / 2.f + 1.f});
+        m_bar->addChild(title);
+        auto version = makeLabel("v1.6.0", "chatFont.fnt", 0.45f, {170, 160, 210});
+        version->setAnchorPoint({1.f, 0.5f});
+        version->setPosition({logoW - 5.f, BAR_H / 2.f - 1.f});
+        m_bar->addChild(version);
 
-        auto version = makeLabel("v1.5.0", "chatFont.fnt", 0.6f, {170, 160, 210});
-        version->setAnchorPoint({0.f, 0.5f});
-        version->setPosition({48.f + title->getScaledContentSize().width + 6.f, H - 24.f});
-        m_mainLayer->addChild(version);
-
-        auto hint = makeLabel(CLOSE_HINT, "chatFont.fnt", 0.55f, {150, 140, 190});
-        hint->setAnchorPoint({1.f, 0.5f});
-        hint->setPosition({W - 40.f, H - 23.f});
-        m_mainLayer->addChild(hint);
-
-        auto header = makeMenu();
-        m_mainLayer->addChild(header);
-        auto closeBtn = CCMenuItemExt::createSpriteExtra(
-            makeLabel("X", "bigFont.fnt", 0.5f, PURPLE),
-            [this](auto) { this->onClose(nullptr); }
-        );
-        closeBtn->setPosition({W - 20.f, H - 22.f});
-        header->addChild(closeBtn);
+        auto barMenu = makeMenu({barW, BAR_H});
+        m_bar->addChild(barMenu);
 
         // Categories
-        char const* names[] = {"Player", "Level", "Labels", "Bot", "Info"};
-        for (int i = 0; i < 5; i++) {
-            auto tab = PillNode::create(names[i]);
-            auto item = CCMenuItemExt::createSpriteExtra(tab, [this, i](auto) { this->buildTab(i); });
-            item->setPosition({59.f, H - 66.f - 30.f * float(i)});
-            header->addChild(item);
+        char const* names[TABS] = {"Player", "Level", "Labels", "Bot", "Info"};
+        float x = logoW + GAP;
+        for (int i = 0; i < TABS; i++) {
+            auto tab = PillNode::create(names[i], TAB_W, BAR_H, 0.36f);
+            auto item = CCMenuItemExt::createSpriteExtra(tab, [this, i](auto) {
+                if (m_tab == i) this->closeWindow();
+                else this->openTab(i);
+            });
+            item->setPosition({x + TAB_W / 2.f, BAR_H / 2.f});
+            barMenu->addChild(item);
             m_tabs.push_back(tab);
+            m_tabItems.push_back(item);
+            x += TAB_W + GAP;
         }
 
-        // Content area (rebuilt on every tab change)
-        m_content = makeMenu();
-        m_mainLayer->addChild(m_content);
+        // Close button
+        auto closeBtn = CCMenuItemExt::createSpriteExtra(
+            PillNode::create("X", 22.f, BAR_H, 0.4f),
+            [this](auto) { this->onClose(nullptr); }
+        );
+        closeBtn->setPosition({x + 11.f, BAR_H / 2.f});
+        barMenu->addChild(closeBtn);
+
+        auto hint = makeLabel(CLOSE_HINT, "chatFont.fnt", 0.5f, {200, 190, 235});
+        hint->setPosition({m_win.width / 2.f, 10.f});
+        hint->setOpacity(170);
+        m_mainLayer->addChild(hint);
+
+        // --- The window (shown under the selected category) ------------------
+        m_window = CCNode::create();
+        m_window->setAnchorPoint({0.f, 1.f});
+        m_window->ignoreAnchorPointForPosition(false);
+        m_window->setVisible(false);
+        m_mainLayer->addChild(m_window);
+        m_windowBg = makeDraw();
+        m_window->addChild(m_windowBg, -1);
+        m_content = makeMenu({WW, 300.f});
+        m_window->addChild(m_content);
         m_contentNodes = CCNode::create();
-        m_mainLayer->addChild(m_contentNodes);
+        m_window->addChild(m_contentNodes);
+        m_status = makeLabel("", "chatFont.fnt", 0.5f);
+        m_status->setPosition({WW / 2.f, 11.f});
+        m_window->addChild(m_status);
 
-        m_status = makeLabel("", "chatFont.fnt", 0.65f);
-        m_status->setPosition({W / 2.f, 16.f});
-        m_mainLayer->addChild(m_status);
-
-        this->buildTab(0);
+        // Only the categories at first
         return true;
+    }
+
+    // Unroll the window of a category, right below its button
+    void openTab(int tab) {
+        float h = WH[tab];
+        m_window->setContentSize({WW, h});
+        m_windowBg->clear();
+        drawRoundedRect(m_windowBg, {0.f, 0.f, WW, h}, 10.f, PANEL4, 1.4f, PURPLE4);
+        m_windowBg->drawSegment({10.f, 22.f}, {WW - 10.f, 22.f}, 0.4f, rgba(0.59f, 0.43f, 1.f, 0.35f));
+
+        // Left edge under the category button, kept on screen
+        auto item = m_tabItems[tab];
+        auto world = m_bar->convertToWorldSpace({item->getPositionX() - TAB_W / 2.f, 0.f});
+        auto local = m_mainLayer->convertToNodeSpace(world);
+        float x = std::clamp(local.x, 6.f, m_win.width - WW - 6.f);
+        m_window->setPosition({x, local.y - 6.f});
+
+        this->buildTab(tab);
+
+        m_window->stopAllActions();
+        m_window->setVisible(true);
+        m_window->setScaleY(0.f);
+        m_window->runAction(CCEaseBackOut::create(CCScaleTo::create(0.22f, 1.f, 1.f)));
+    }
+
+    // Roll the window back up
+    void closeWindow() {
+        if (m_tab < 0) return;
+        m_tab = -1;
+        for (auto t : m_tabs) t->setSelected(false);
+        m_window->stopAllActions();
+        m_window->runAction(CCSequence::create(
+            CCEaseIn::create(CCScaleTo::create(0.14f, 1.f, 0.f), 2.f),
+            CallFuncExt::create([this] {
+                m_window->setVisible(false);
+                m_content->removeAllChildren();
+                m_contentNodes->removeAllChildren();
+                m_cornerLbl = m_scaleLbl = m_opacityLbl = nullptr;
+                m_speedInput = nullptr;
+            }),
+            nullptr
+        ));
     }
 
     // --- Building blocks ----------------------------------------------------
@@ -184,8 +259,10 @@ class TanzaniteMenu : public Popup {
 
     // --- Tabs ---------------------------------------------------------------
 
+    // Fill the window with a category (also used to refresh it in place)
     void buildTab(int tab) {
         m_tab = tab;
+        m_top = WH[tab] - 18.f;
         m_content->removeAllChildren();
         m_contentNodes->removeAllChildren();
         m_cornerLbl = m_scaleLbl = m_opacityLbl = nullptr;
@@ -203,7 +280,7 @@ class TanzaniteMenu : public Popup {
     }
 
     void buildPlayer() {
-        float y = H - 66.f;
+        float y = m_top;
         addSwitch("Noclip", &s.noclip, CX, y, CW);
         addText("Go through obstacles without dying", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
@@ -245,7 +322,7 @@ class TanzaniteMenu : public Popup {
     }
 
     void buildLevel() {
-        float y = H - 66.f;
+        float y = m_top;
         addSwitch("Safe Mode", &s.safeMode, CX, y, CW);
         addText("The level counts as a test run: no progress is saved", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
@@ -268,16 +345,17 @@ class TanzaniteMenu : public Popup {
             {"Jumps", &s.lblJumps},
             {"Level Time", &s.lblTime},
             {"Clock", &s.lblClock},
+            {"Best Run", &s.lblBestRun},
             {"Custom Message", &s.lblMessage},
         };
         float colW = (CW - 8.f) / 2.f;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < int(std::size(entries)); i++) {
             float x = CX + (i % 2) * (colW + 8.f);
-            float y = H - 64.f - 21.f * float(i / 2);
+            float y = m_top - 21.f * float(i / 2);
             addSwitch(entries[i].name, entries[i].value, x, y, colW, 0.32f);
         }
 
-        float y = H - 64.f - 21.f * 5.f - 6.f;   // below the grid
+        float y = m_top - 21.f * 6.f - 6.f;   // below the grid
         m_cornerLbl = addStepper("Position", CX, y, CX + 150.f,
             [this]() { s.corner = (s.corner + 3) % 4; this->onLabelSettingChanged(); },
             [this]() { s.corner = (s.corner + 1) % 4; this->onLabelSettingChanged(); });
@@ -323,7 +401,7 @@ class TanzaniteMenu : public Popup {
 
     void buildBot() {
         using bot::Mode;
-        float y = H - 64.f;
+        float y = m_top;
 
         // One big button: everything else happens in the level itself
         auto bigBtn = PillNode::create(bot::macroMode ? "Exit Macro Mode" : "Enter Macro Mode", 170.f, 24.f, 0.42f);
@@ -408,8 +486,8 @@ class TanzaniteMenu : public Popup {
     }
 
     void buildInfo() {
-        float y = H - 66.f;
-        addText("Tanzanite v1.5.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        float y = m_top;
+        addText("Tanzanite v1.6.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
             OPEN_HINT,

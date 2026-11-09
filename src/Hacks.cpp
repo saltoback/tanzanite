@@ -44,6 +44,7 @@ void tanzanite::load() {
     s.lblTime         = m->getSavedValue<bool>("lbl-time", false);
     s.lblClock        = m->getSavedValue<bool>("lbl-clock", false);
     s.lblMessage      = m->getSavedValue<bool>("lbl-message", false);
+    s.lblBestRun      = m->getSavedValue<bool>("lbl-best-run", false);
     s.message         = m->getSavedValue<std::string>("message", "Tanzanite");
     s.corner          = m->getSavedValue<int>("corner", TopLeft);
     s.labelScale      = m->getSavedValue<float>("label-scale", 1.0f);
@@ -71,6 +72,7 @@ void tanzanite::save() {
     m->setSavedValue("lbl-time", s.lblTime);
     m->setSavedValue("lbl-clock", s.lblClock);
     m->setSavedValue("lbl-message", s.lblMessage);
+    m->setSavedValue("lbl-best-run", s.lblBestRun);
     m->setSavedValue("message", s.message);
     m->setSavedValue("corner", s.corner);
     m->setSavedValue("label-scale", s.labelScale);
@@ -211,6 +213,15 @@ public:
         if (s.lblJumps) lines.push_back({fmt::format("Jumps: {}", m_pl->m_jumps), white});
         if (s.lblTime) lines.push_back({formatTime(m_pl->m_gameState.m_levelTime), white});
         if (s.lblClock) lines.push_back({clockString(), white});
+        if (s.lblBestRun) {
+            std::string text = "Best Run: none";
+            if (bestRun.bestTo >= 0.f) {
+                int from = static_cast<int>(bestRun.bestFrom);
+                int to = static_cast<int>(bestRun.bestTo);
+                text = from > 0 ? fmt::format("Best Run: {}-{}%", from, to) : fmt::format("Best Run: {}%", to);
+            }
+            lines.push_back({text, white});
+        }
         if (s.lblMessage && !s.message.empty()) lines.push_back({s.message, PURPLE});
 
         // Bot status: always shown while the bot or the frame stepper is on
@@ -267,6 +278,7 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
     bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
         if (!PlayLayer::init(level, useReplay, dontCreateObjects)) return false;
         stats.reset();
+        bestRun.clear();
         s_clicks.clear();
         bot::onLevelInit(this);
         traj::onLevelInit(this);
@@ -279,6 +291,7 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
     void resetLevel() {
         PlayLayer::resetLevel();
         stats.reset();
+        bestRun.start = this->getCurrentPercent();   // start pos / checkpoint
         bot::onReset(this);
     }
 
@@ -331,6 +344,7 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
             return;
         }
         if (safeActive()) m_isTestMode = true;
+        if (!m_hasCompletedLevel) bestRun.onRunEnd(this->getCurrentPercent());
         PlayLayer::destroyPlayer(player, object);
     }
 
@@ -339,6 +353,7 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
     void levelComplete() {
         if (safeActive()) m_isTestMode = true;
         bot::onLevelComplete(this);
+        bestRun.onRunEnd(100.f);
         PlayLayer::levelComplete();
     }
 

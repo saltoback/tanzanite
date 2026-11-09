@@ -6,11 +6,13 @@ A [Geode](https://geode-sdk.org) mod written in C++ (Windows and Android, GD 2.2
 On **Android**, tap the floating gem button instead (drag it to move it anywhere on the screen).
 
 ## Categories
+The menu is a bar of categories at the top of the screen: click one to unroll its window right below it, click it again to roll it up.
+
 | Category | Options |
 |---|---|
 | Player | Noclip, Speedhack (speed 0.05 to 10, presets), Show Hitboxes, Show Trajectory |
 | Level | Safe Mode, Auto Safe Mode (on by default), Accurate Percentage |
-| Labels | Cheat Indicator, FPS, CPS, Noclip Accuracy, Noclip Deaths, Attempts, Jumps, Level Time, Clock, Custom Message — adjustable corner, size and opacity |
+| Labels | Cheat Indicator, FPS, CPS, Noclip Accuracy, Noclip Deaths, Attempts, Jumps, Level Time, Clock, Best Run, Custom Message — adjustable corner, size and opacity |
 | Bot | Enter / Exit Macro Mode, saved macros list, Position Fix, Show Trajectory |
 | Info | Shortcuts, version, repository link |
 
