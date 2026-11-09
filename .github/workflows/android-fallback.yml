@@ -1,0 +1,89 @@
+# Backup Android build, run by hand from the Actions tab.
+# Same steps as geode-sdk/build-geode-mod, but every GitHub release file is
+# fetched through the GitHub API, so it still works when the direct
+# "releases/download" links are down.
+name: Android build (fallback)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - name: Android64
+          target: Android64
+          id: android64
+          abi: arm64-v8a
+        - name: Android32
+          target: Android32
+          id: android32
+          abi: armeabi-v7a
+
+    name: ${{ matrix.config.name }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build jq unzip
+
+      - name: Download a release asset through the API
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/tools"
+          cat > "$GITHUB_WORKSPACE/tools/fetch-asset" <<'EOF'
+          #!/bin/bash
+          # usage: fetch-asset <repo> <tag> <asset name> <output file>
+          set -e
+          id=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$1/releases/tags/$2" | jq -r ".assets[] | select(.name == \"$3\") | .id")
+          curl -sfL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/$1/releases/assets/$id" -o "$4"
+          EOF
+          chmod +x "$GITHUB_WORKSPACE/tools/fetch-asset"
+          echo "$GITHUB_WORKSPACE/tools" >> $GITHUB_PATH
+
+      - name: Install the Geode CLI
+        run: |
+          fetch-asset geode-sdk/cli v4.0.0 geode-cli-v4.0.0-linux.zip cli.zip
+          mkdir -p "$GITHUB_WORKSPACE/cli"
+          unzip -o cli.zip -d "$GITHUB_WORKSPACE/cli"
+          chmod +x "$GITHUB_WORKSPACE/cli/geode"
+          echo "$GITHUB_WORKSPACE/cli" >> $GITHUB_PATH
+
+      - name: Install the Geode SDK and binaries
+        run: |
+          VERSION=$(jq -r '.geode' mod.json)
+          git clone --depth 1 --branch "v$VERSION" https://github.com/geode-sdk/geode.git "$GITHUB_WORKSPACE/geode-sdk"
+          echo "GEODE_SDK=$GITHUB_WORKSPACE/geode-sdk" >> $GITHUB_ENV
+          fetch-asset geode-sdk/geode "v$VERSION" "geode-v$VERSION-${{ matrix.config.id }}.zip" bin.zip
+          mkdir -p "$GITHUB_WORKSPACE/geode-sdk/bin/$VERSION"
+          unzip -o bin.zip -d "$GITHUB_WORKSPACE/geode-sdk/bin/$VERSION"
+          ls -la "$GITHUB_WORKSPACE/geode-sdk/bin/$VERSION"
+          geode sdk install "$GITHUB_WORKSPACE/geode-sdk" || true
+
+      - name: Build
+        run: |
+          NDK_PATH="$ANDROID_NDK_LATEST_HOME"
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DGEODE_CODEGEN_CMAKE_ARGS="-DCMAKE_C_COMPILER=clang;-DCMAKE_CXX_COMPILER=clang++;-G Ninja" \
+            -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
+            -DANDROID_STL=c++_shared -DANDROID_ABI=${{ matrix.config.abi }} -DANDROID_PLATFORM=android-23 \
+            -DGEODE_DONT_INSTALL_MODS=ON -DGEODE_TARGET_PLATFORM=${{ matrix.config.target }}
+          cmake --build build --config Release --parallel
+
+      - name: Collect the .geode file
+        run: |
+          mkdir -p output
+          find ./build -name '*.geode' -exec cp {} output/ \;
+          ls -la output
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tanzanite-${{ matrix.config.name }}
+          path: output/*.geode
