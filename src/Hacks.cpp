@@ -49,6 +49,7 @@ void tanzanite::load() {
     s.bestRunAccurate = m->getSavedValue<bool>("best-run-accurate", true);
     s.speedhackMusic  = m->getSavedValue<bool>("speedhack-music", true);
     s.noParticles     = m->getSavedValue<bool>("no-particles", false);
+    s.simpleEditor    = m->getSavedValue<bool>("simple-editor", true);
     s.noIconEffects   = m->getSavedValue<bool>("no-icon-effects", false);
     for (int i = 0; i < 8; i++) {
         s.partModes[i] = m->getSavedValue<bool>(fmt::format("part-mode-{}", i), true);
@@ -103,6 +104,7 @@ void tanzanite::save() {
     m->setSavedValue("best-run-accurate", s.bestRunAccurate);
     m->setSavedValue("speedhack-music", s.speedhackMusic);
     m->setSavedValue("no-particles", s.noParticles);
+    m->setSavedValue("simple-editor", s.simpleEditor);
     m->setSavedValue("no-icon-effects", s.noIconEffects);
     for (int i = 0; i < 8; i++) {
         m->setSavedValue(fmt::format("part-mode-{}", i), s.partModes[i]);
