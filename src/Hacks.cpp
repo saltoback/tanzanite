@@ -45,6 +45,8 @@ void tanzanite::load() {
     s.lblClock        = m->getSavedValue<bool>("lbl-clock", false);
     s.lblMessage      = m->getSavedValue<bool>("lbl-message", false);
     s.lblBestRun      = m->getSavedValue<bool>("lbl-best-run", false);
+    s.bestRunAccurate = m->getSavedValue<bool>("best-run-accurate", true);
+    s.speedhackMusic  = m->getSavedValue<bool>("speedhack-music", true);
     s.message         = m->getSavedValue<std::string>("message", "Tanzanite");
     s.corner          = m->getSavedValue<int>("corner", TopLeft);
     s.labelScale      = m->getSavedValue<float>("label-scale", 1.0f);
@@ -73,6 +75,8 @@ void tanzanite::save() {
     m->setSavedValue("lbl-clock", s.lblClock);
     m->setSavedValue("lbl-message", s.lblMessage);
     m->setSavedValue("lbl-best-run", s.lblBestRun);
+    m->setSavedValue("best-run-accurate", s.bestRunAccurate);
+    m->setSavedValue("speedhack-music", s.speedhackMusic);
     m->setSavedValue("message", s.message);
     m->setSavedValue("corner", s.corner);
     m->setSavedValue("label-scale", s.labelScale);
@@ -116,6 +120,19 @@ $on_mod(Loaded) {
 class $modify(CCScheduler) {
     void update(float dt) {
         if (s.speedhack) dt *= s.speed;
+
+        // Music follows the game speed (option "Speed up music")
+        static float s_pitch = 1.f;
+        float pitch = (s.speedhack && s.speedhackMusic) ? s.speed : 1.f;
+        if (pitch != s_pitch) {
+            auto engine = FMODAudioEngine::sharedEngine();
+            FMOD::ChannelGroup* master = nullptr;
+            if (engine && engine->m_system && engine->m_system->getMasterChannelGroup(&master) == FMOD_OK && master) {
+                master->setPitch(pitch);
+                s_pitch = pitch;
+            }
+        }
+
         CCScheduler::update(dt);
     }
 };
@@ -216,9 +233,12 @@ public:
         if (s.lblBestRun) {
             std::string text = "Best Run: none";
             if (bestRun.bestTo >= 0.f) {
-                int from = static_cast<int>(bestRun.bestFrom);
-                int to = static_cast<int>(bestRun.bestTo);
-                text = from > 0 ? fmt::format("Best Run: {}-{}%", from, to) : fmt::format("Best Run: {}%", to);
+                auto pct = [](float v) {
+                    return s.bestRunAccurate ? fmt::format("{:.2f}", v) : fmt::format("{}", static_cast<int>(v));
+                };
+                text = bestRun.bestFrom > 0.f
+                    ? fmt::format("Best Run: {}-{}%", pct(bestRun.bestFrom), pct(bestRun.bestTo))
+                    : fmt::format("Best Run: {}%", pct(bestRun.bestTo));
             }
             lines.push_back({text, white});
         }

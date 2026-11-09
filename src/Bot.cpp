@@ -16,6 +16,10 @@
 #include <sstream>
 #include <unordered_map>
 
+#ifdef GEODE_IS_WINDOWS
+#include <Windows.h>
+#endif
+
 using namespace geode::prelude;
 using namespace tanzanite;
 namespace fs = std::filesystem;
@@ -353,9 +357,12 @@ class $modify(BotGameLayer, GJBaseGameLayer) {
     void handleButton(bool down, int button, bool isPlayer1) {
         if (!isPlayLayer(this)) return GJBaseGameLayer::handleButton(down, button, isPlayer1);
 
-        // A click on the macro interface is for its buttons, not for jumping
-#ifdef GEODE_IS_DESKTOP
-        if (down && !s_injecting && hud::blocksPoint(geode::cocos::getMousePos())) return;
+        // A mouse click on the macro interface is for its buttons, not for
+        // jumping. Only while the left mouse button is held: a key press must
+        // still jump wherever the cursor is.
+#ifdef GEODE_IS_WINDOWS
+        if (down && !s_injecting && (GetAsyncKeyState(VK_LBUTTON) & 0x8000)
+            && hud::blocksPoint(geode::cocos::getMousePos())) return;
 #endif
 
         if (down) tanzanite::onClick();

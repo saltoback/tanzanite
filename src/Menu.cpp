@@ -49,7 +49,16 @@ class TanzaniteMenu : public Popup {
 
     CCSize m_win;
     CCNode* m_bar = nullptr;
+    static constexpr float PW = 170.f;        // options panel width
+
+    struct Opt { char const* name; bool* value; };
+
     int m_tab = -1;                           // -1: no window open
+    CCNode* m_popover = nullptr;
+    CCDrawNode* m_popBg = nullptr;
+    CCMenu* m_popMenu = nullptr;
+    CCNode* m_popNodes = nullptr;
+    std::string m_popKey;
     float m_top = 0.f;                        // y of the first row in the window
     std::vector<PillNode*> m_tabs;
     std::vector<CCNode*> m_tabItems;
@@ -109,7 +118,7 @@ class TanzaniteMenu : public Popup {
         title->setAnchorPoint({0.f, 0.5f});
         title->setPosition({28.f, BAR_H / 2.f + 1.f});
         m_bar->addChild(title);
-        auto version = makeLabel("v1.6.0", "chatFont.fnt", 0.45f, {170, 160, 210});
+        auto version = makeLabel("v1.6.1", "chatFont.fnt", 0.45f, {170, 160, 210});
         version->setAnchorPoint({1.f, 0.5f});
         version->setPosition({logoW - 5.f, BAR_H / 2.f - 1.f});
         m_bar->addChild(version);
@@ -162,6 +171,19 @@ class TanzaniteMenu : public Popup {
         m_status->setPosition({WW / 2.f, 11.f});
         m_window->addChild(m_status);
 
+        // Options panel opened by the "+" buttons
+        m_popover = CCNode::create();
+        m_popover->setAnchorPoint({0.f, 1.f});
+        m_popover->ignoreAnchorPointForPosition(false);
+        m_popover->setVisible(false);
+        m_mainLayer->addChild(m_popover, 5);
+        m_popBg = makeDraw();
+        m_popover->addChild(m_popBg, -1);
+        m_popMenu = makeMenu({PW, 200.f});
+        m_popover->addChild(m_popMenu);
+        m_popNodes = CCNode::create();
+        m_popover->addChild(m_popNodes);
+
         // Only the categories at first
         return true;
     }
@@ -192,6 +214,7 @@ class TanzaniteMenu : public Popup {
     // Roll the window back up
     void closeWindow() {
         if (m_tab < 0) return;
+        this->closeOptions();
         m_tab = -1;
         for (auto t : m_tabs) t->setSelected(false);
         m_window->stopAllActions();
@@ -217,13 +240,87 @@ class TanzaniteMenu : public Popup {
         m_contentNodes->addChild(lbl);
     }
 
+    // Small "+" button that opens the extra options of a switch
+    void addOptionsButton(char const* title, std::vector<Opt> opts, float x, float y) {
+        auto plus = PillNode::create("+", 16.f, 16.f, 0.4f);
+        std::string key = title;
+        auto item = CCMenuItemExt::createSpriteExtra(plus, [this, key, opts, y](auto) {
+            this->toggleOptions(key, opts, y);
+        });
+        item->setPosition({x, y});
+        m_content->addChild(item);
+    }
+
+    // Opens (or closes) the options panel next to the window, level with a row
+    void toggleOptions(std::string const& key, std::vector<Opt> const& opts, float rowY) {
+        if (m_popover->isVisible() && m_popKey == key) {
+            this->closeOptions();
+            return;
+        }
+        m_popKey = key;
+        m_popMenu->removeAllChildren();
+        m_popNodes->removeAllChildren();
+
+        float ph = 28.f + 22.f * float(opts.size());
+        m_popover->setContentSize({PW, ph});
+        m_popBg->clear();
+        drawRoundedRect(m_popBg, {0.f, 0.f, PW, ph}, 8.f, PANEL4, 1.2f, PURPLE4);
+
+        auto title = makeLabel((key + " options").c_str(), "bigFont.fnt", 0.3f, PURPLE);
+        title->setAnchorPoint({0.f, 0.5f});
+        title->setPosition({10.f, ph - 13.f});
+        title->limitLabelWidth(PW - 20.f, 0.3f, 0.1f);
+        m_popNodes->addChild(title);
+
+        float y = ph - 34.f;
+        for (auto const& opt : opts) {
+            auto lbl = makeLabel(opt.name, "bigFont.fnt", 0.3f);
+            lbl->setAnchorPoint({0.f, 0.5f});
+            lbl->setPosition({10.f, y});
+            lbl->limitLabelWidth(PW - 56.f, 0.3f, 0.1f);
+            m_popNodes->addChild(lbl);
+            auto sw = SwitchNode::create(*opt.value);
+            bool* value = opt.value;
+            auto item = CCMenuItemExt::createSpriteExtra(sw, [value, sw](auto) {
+                *value = !*value;
+                sw->setOn(*value);
+                tanzanite::save();
+            });
+            item->setPosition({PW - 24.f, y});
+            m_popMenu->addChild(item);
+            y -= 22.f;
+        }
+
+        // Right of the window if there is room, else left of it
+        float wx = m_window->getPositionX();
+        float x = wx + WW + 6.f;
+        if (x + PW > m_win.width - 4.f) x = wx - PW - 6.f;
+        float rowWorld = m_window->getPositionY() - WH[m_tab] + rowY;
+        float top = std::clamp(rowWorld + 12.f, ph + 4.f, m_win.height - 4.f);
+        m_popover->setPosition({x, top});
+
+        m_popover->stopAllActions();
+        m_popover->setVisible(true);
+        m_popover->setScale(0.f);
+        m_popover->runAction(CCEaseBackOut::create(CCScaleTo::create(0.18f, 1.f)));
+    }
+
+    void closeOptions() {
+        m_popKey.clear();
+        m_popover->stopAllActions();
+        m_popover->setVisible(false);
+        m_popMenu->removeAllChildren();
+        m_popNodes->removeAllChildren();
+    }
+
     void addSwitch(char const* text, bool* value, float x, float y, float w, float textScale = 0.38f,
-                   std::function<void(bool)> onChange = nullptr) {
+                   std::function<void(bool)> onChange = nullptr, std::vector<Opt> options = {}) {
         auto lbl = makeLabel(text, "bigFont.fnt", textScale);
         lbl->setAnchorPoint({0.f, 0.5f});
         lbl->setPosition({x, y});
-        lbl->limitLabelWidth(w - 42.f, textScale, 0.1f);
+        lbl->limitLabelWidth(w - (options.empty() ? 42.f : 62.f), textScale, 0.1f);
         m_contentNodes->addChild(lbl);
+        if (!options.empty()) addOptionsButton(text, std::move(options), x + w - 46.f, y);
 
         auto sw = SwitchNode::create(*value);
         auto item = CCMenuItemExt::createSpriteExtra(sw, [this, value, sw, onChange](auto) {
@@ -261,6 +358,7 @@ class TanzaniteMenu : public Popup {
 
     // Fill the window with a category (also used to refresh it in place)
     void buildTab(int tab) {
+        if (tab != m_tab) this->closeOptions();
         m_tab = tab;
         m_top = WH[tab] - 18.f;
         m_content->removeAllChildren();
@@ -284,8 +382,9 @@ class TanzaniteMenu : public Popup {
         addSwitch("Noclip", &s.noclip, CX, y, CW);
         addText("Go through obstacles without dying", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
-        addSwitch("Speedhack", &s.speedhack, CX, y, CW);
-        addText("Speeds up or slows down the game (not the music)", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        addSwitch("Speedhack", &s.speedhack, CX, y, CW, 0.38f, nullptr,
+                  {{"Speed up music", &s.speedhackMusic}});
+        addText("Speeds up or slows down the game (+ for the music)", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
         y -= 40.f;
 
         addText("Speed", CX, y, "bigFont.fnt", 0.38f, {255, 255, 255});
@@ -352,7 +451,9 @@ class TanzaniteMenu : public Popup {
         for (int i = 0; i < int(std::size(entries)); i++) {
             float x = CX + (i % 2) * (colW + 8.f);
             float y = m_top - 21.f * float(i / 2);
-            addSwitch(entries[i].name, entries[i].value, x, y, colW, 0.32f);
+            std::vector<Opt> opts;
+            if (entries[i].value == &s.lblBestRun) opts = {{"Accurate (0.01%)", &s.bestRunAccurate}};
+            addSwitch(entries[i].name, entries[i].value, x, y, colW, 0.32f, nullptr, std::move(opts));
         }
 
         float y = m_top - 21.f * 6.f - 6.f;   // below the grid
@@ -487,7 +588,7 @@ class TanzaniteMenu : public Popup {
 
     void buildInfo() {
         float y = m_top;
-        addText("Tanzanite v1.6.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.6.1", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
             OPEN_HINT,

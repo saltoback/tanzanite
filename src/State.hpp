@@ -39,6 +39,8 @@ namespace tanzanite {
         bool lblClock = false;
         bool lblMessage = false;
         bool lblBestRun = false;
+        bool bestRunAccurate = true;    // Best Run with 2 decimals
+        bool speedhackMusic = true;     // music follows the speedhack
         std::string message = "Tanzanite";
         int corner = TopLeft;
         float labelScale = 1.0f;
