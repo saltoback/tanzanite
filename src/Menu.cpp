@@ -49,7 +49,8 @@ class TanzaniteMenu : public Popup {
 
     CCSize m_win;
     CCNode* m_bar = nullptr;
-    static constexpr float PW = 170.f;        // options panel width
+    static constexpr float PW = 170.f;        // options panel width (default)
+    float m_popW = PW;
 
     struct Opt { char const* name; bool* value; };
 
@@ -120,7 +121,7 @@ class TanzaniteMenu : public Popup {
         title->setAnchorPoint({0.f, 0.5f});
         title->setPosition({28.f, BAR_H / 2.f + 1.f});
         m_bar->addChild(title);
-        auto version = makeLabel("v1.7.0", "chatFont.fnt", 0.45f, {170, 160, 210});
+        auto version = makeLabel("v1.7.1", "chatFont.fnt", 0.45f, {170, 160, 210});
         version->setAnchorPoint({1.f, 0.5f});
         version->setPosition({logoW - 5.f, BAR_H / 2.f - 1.f});
         m_bar->addChild(version);
@@ -181,7 +182,7 @@ class TanzaniteMenu : public Popup {
         m_mainLayer->addChild(m_popover, 5);
         m_popBg = makeDraw();
         m_popover->addChild(m_popBg, -1);
-        m_popMenu = makeMenu({PW, 200.f});
+        m_popMenu = makeMenu({320.f, 320.f});
         m_popover->addChild(m_popMenu);
         m_popNodes = CCNode::create();
         m_popover->addChild(m_popNodes);
@@ -246,7 +247,20 @@ class TanzaniteMenu : public Popup {
     void addOptionsButton(char const* title, std::vector<Opt> opts, float x, float y) {
         auto plus = PillNode::create("+", 16.f, 16.f, 0.4f);
         std::string key = title;
-        auto item = CCMenuItemExt::createSpriteExtra(plus, [this, key, opts, x, y](auto) {
+        // Options with section headers (value == nullptr) go in columns
+        int columns = 0, rows = 0, maxRows = 0;
+        for (auto const& o : opts) {
+            if (!o.value) { columns++; rows = 0; }
+            else maxRows = std::max(maxRows, ++rows);
+        }
+        auto item = CCMenuItemExt::createSpriteExtra(plus, [this, key, opts, x, y, columns, maxRows](auto) {
+            if (columns > 0) {
+                float ph = 30.f + 17.f * float(maxRows + 1);
+                this->togglePopover(key, key + " options", ph, x, y, [this, opts](float h) {
+                    this->fillColumns(opts, h);
+                }, 140.f * float(columns) + 10.f);
+                return;
+            }
             float ph = 28.f + 22.f * float(opts.size());
             this->togglePopover(key, key + " options", ph, x, y, [this, opts](float h) {
                 this->fillOptions(opts, h);
@@ -254,6 +268,40 @@ class TanzaniteMenu : public Popup {
         });
         item->setPosition({x, y});
         m_content->addChild(item);
+    }
+
+    // One column per section: header, then small switches
+    void fillColumns(std::vector<Opt> const& opts, float ph) {
+        float colX = -135.f;
+        float y = 0.f;
+        for (auto const& opt : opts) {
+            if (!opt.value) {
+                colX += 140.f;
+                y = ph - 32.f;
+                auto head = makeLabel(opt.name, "bigFont.fnt", 0.26f, {200, 190, 235});
+                head->setAnchorPoint({0.f, 0.5f});
+                head->setPosition({colX + 5.f, y});
+                m_popNodes->addChild(head);
+                y -= 17.f;
+                continue;
+            }
+            auto lbl = makeLabel(opt.name, "bigFont.fnt", 0.26f);
+            lbl->setAnchorPoint({0.f, 0.5f});
+            lbl->setPosition({colX + 5.f, y});
+            lbl->limitLabelWidth(90.f, 0.26f, 0.1f);
+            m_popNodes->addChild(lbl);
+            auto sw = SwitchNode::create(*opt.value);
+            sw->setScale(0.75f);
+            bool* value = opt.value;
+            auto item = CCMenuItemExt::createSpriteExtra(sw, [value, sw](auto) {
+                *value = !*value;
+                sw->setOn(*value);
+                tanzanite::save();
+            });
+            item->setPosition({colX + 118.f, y});
+            m_popMenu->addChild(item);
+            y -= 17.f;
+        }
     }
 
     void fillOptions(std::vector<Opt> const& opts, float ph) {
@@ -280,11 +328,12 @@ class TanzaniteMenu : public Popup {
     // Panel of extra options, opened from a button of the window (or closed
     // if it is already open). buttonX / rowY: the button, in window space.
     void togglePopover(std::string const& key, std::string const& title, float ph, float buttonX, float rowY,
-                       std::function<void(float)> fill) {
+                       std::function<void(float)> fill, float width = PW) {
         if (m_popover->isVisible() && m_popKey == key) {
             this->closeOptions();
             return;
         }
+        m_popW = width;
         m_popKey = key;
         m_popFill = fill;
         m_popTitle = title;
@@ -295,17 +344,17 @@ class TanzaniteMenu : public Popup {
         float wx = m_window->getPositionX();
         float rowWorld = m_window->getPositionY() - WH[m_tab] + rowY;
         float x, top;
-        if (wx + WW + 6.f + PW <= m_win.width - 4.f) {
+        if (wx + WW + 6.f + m_popW <= m_win.width - 4.f) {
             x = wx + WW + 6.f;
             top = rowWorld + 12.f;
-        } else if (wx - PW - 6.f >= 4.f) {
-            x = wx - PW - 6.f;
+        } else if (wx - m_popW - 6.f >= 4.f) {
+            x = wx - m_popW - 6.f;
             top = rowWorld + 12.f;
         } else {
-            x = wx + buttonX + 10.f - PW;
+            x = wx + buttonX + 10.f - m_popW;
             top = rowWorld - 12.f;
         }
-        x = std::clamp(x, 4.f, m_win.width - PW - 4.f);
+        x = std::clamp(x, 4.f, m_win.width - m_popW - 4.f);
         top = std::clamp(top, ph + 4.f, m_win.height - 4.f);
         m_popover->setPosition({x, top});
 
@@ -319,14 +368,14 @@ class TanzaniteMenu : public Popup {
     void refillPopover(float ph) {
         m_popMenu->removeAllChildren();
         m_popNodes->removeAllChildren();
-        m_popover->setContentSize({PW, ph});
+        m_popover->setContentSize({m_popW, ph});
         m_popBg->clear();
-        drawRoundedRect(m_popBg, {0.f, 0.f, PW, ph}, 8.f, PANEL4, 1.2f, PURPLE4);
+        drawRoundedRect(m_popBg, {0.f, 0.f, m_popW, ph}, 8.f, PANEL4, 1.2f, PURPLE4);
 
         auto title = makeLabel(m_popTitle.c_str(), "bigFont.fnt", 0.3f, PURPLE);
         title->setAnchorPoint({0.f, 0.5f});
         title->setPosition({10.f, ph - 13.f});
-        title->limitLabelWidth(PW - 20.f, 0.3f, 0.1f);
+        title->limitLabelWidth(m_popW - 20.f, 0.3f, 0.1f);
         m_popNodes->addChild(title);
 
         if (m_popFill) m_popFill(ph);
@@ -343,7 +392,7 @@ class TanzaniteMenu : public Popup {
                                  on ? ccColor3B{255, 255, 255} : ccColor3B{130, 120, 160});
             lbl->setAnchorPoint({0.f, 0.5f});
             lbl->setPosition({10.f, y});
-            lbl->limitLabelWidth(PW - 56.f, 0.27f, 0.1f);
+            lbl->limitLabelWidth(m_popW - 56.f, 0.27f, 0.1f);
             m_popNodes->addChild(lbl);
 
             for (int dir : {-1, 1}) {
@@ -362,7 +411,7 @@ class TanzaniteMenu : public Popup {
                         this->release();
                     });
                 });
-                item->setPosition({PW - (dir < 0 ? 38.f : 18.f), y});
+                item->setPosition({m_popW - (dir < 0 ? 38.f : 18.f), y});
                 m_popMenu->addChild(item);
             }
             y -= 17.f;
@@ -487,8 +536,18 @@ class TanzaniteMenu : public Popup {
 
         // Icon visuals, every game mode
         float colW = (CW - 8.f) / 2.f;
-        addSwitch("No Particles", &s.noParticles, CX, y, colW, 0.32f);
-        addSwitch("No Icon Effects", &s.noIconEffects, CX + colW + 8.f, y, colW, 0.32f);
+        // "+": choose the game modes and the kinds of particles / effects
+        auto sections = [](bool* modes, bool* types, char const* const* typeNames, char const* typeHeader) {
+            std::vector<Opt> opts = {{"Game modes", nullptr}};
+            for (int i = 0; i < 8; i++) opts.push_back({GAME_MODES[i], &modes[i]});
+            opts.push_back({typeHeader, nullptr});
+            for (int i = 0; i < 5; i++) opts.push_back({typeNames[i], &types[i]});
+            return opts;
+        };
+        addSwitch("No Particles", &s.noParticles, CX, y, colW, 0.32f, nullptr,
+                  sections(s.partModes, s.partTypes, PART_TYPES, "Particles"));
+        addSwitch("No Icon Effects", &s.noIconEffects, CX + colW + 8.f, y, colW, 0.32f, nullptr,
+                  sections(s.fxModes, s.fxTypes, FX_TYPES, "Effects"));
         addText("Hides the icon's particles / trails, wave trail, fire, ghost trail", CX, y - 13.f, "chatFont.fnt", 0.45f, {160, 150, 200});
     }
 
@@ -669,7 +728,7 @@ class TanzaniteMenu : public Popup {
 
     void buildInfo() {
         float y = m_top;
-        addText("Tanzanite v1.7.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.7.1", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
             OPEN_HINT,

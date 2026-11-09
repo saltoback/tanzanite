@@ -44,6 +44,11 @@ namespace tanzanite {
         bool speedhackMusic = true;     // music follows the speedhack
         bool noParticles = false;       // hide the player's particles
         bool noIconEffects = false;     // hide trails, wave trail, ship fire, ghost trail
+        // Which game modes and which kinds are hidden (the "+" of each option)
+        bool partModes[8] = {true, true, true, true, true, true, true, true};
+        bool partTypes[5] = {true, true, true, true, true};
+        bool fxModes[8] = {true, true, true, true, true, true, true, true};
+        bool fxTypes[5] = {true, true, true, true, true};
         std::vector<int> labelOrder;    // order of the labels on screen (LabelId)
         std::string message = "Tanzanite";
         int corner = TopLeft;
@@ -52,6 +57,12 @@ namespace tanzanite {
     };
 
     inline State s;
+
+    // Game modes, as used by partModes / fxModes
+    inline constexpr char const* GAME_MODES[8] = {"Cube", "Ship", "Ball", "UFO", "Wave", "Robot", "Spider", "Swing"};
+    // Kinds of particles (partTypes) and of icon effects (fxTypes)
+    inline constexpr char const* PART_TYPES[5] = {"Ground", "Trail", "Click / Jump", "Landing", "Dash"};
+    inline constexpr char const* FX_TYPES[5] = {"Icon Trail", "Wave Trail", "Ship Fire", "Ghost Trail", "Dash Fire"};
 
     // Labels, in their default order
     enum LabelId {

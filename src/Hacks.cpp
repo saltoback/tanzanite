@@ -50,6 +50,14 @@ void tanzanite::load() {
     s.speedhackMusic  = m->getSavedValue<bool>("speedhack-music", true);
     s.noParticles     = m->getSavedValue<bool>("no-particles", false);
     s.noIconEffects   = m->getSavedValue<bool>("no-icon-effects", false);
+    for (int i = 0; i < 8; i++) {
+        s.partModes[i] = m->getSavedValue<bool>(fmt::format("part-mode-{}", i), true);
+        s.fxModes[i] = m->getSavedValue<bool>(fmt::format("fx-mode-{}", i), true);
+    }
+    for (int i = 0; i < 5; i++) {
+        s.partTypes[i] = m->getSavedValue<bool>(fmt::format("part-type-{}", i), true);
+        s.fxTypes[i] = m->getSavedValue<bool>(fmt::format("fx-type-{}", i), true);
+    }
     s.labelOrder.clear();
     {
         // Saved as "0,1,2,..."
@@ -96,6 +104,14 @@ void tanzanite::save() {
     m->setSavedValue("speedhack-music", s.speedhackMusic);
     m->setSavedValue("no-particles", s.noParticles);
     m->setSavedValue("no-icon-effects", s.noIconEffects);
+    for (int i = 0; i < 8; i++) {
+        m->setSavedValue(fmt::format("part-mode-{}", i), s.partModes[i]);
+        m->setSavedValue(fmt::format("fx-mode-{}", i), s.fxModes[i]);
+    }
+    for (int i = 0; i < 5; i++) {
+        m->setSavedValue(fmt::format("part-type-{}", i), s.partTypes[i]);
+        m->setSavedValue(fmt::format("fx-type-{}", i), s.fxTypes[i]);
+    }
     {
         std::string order;
         for (int id : s.labelOrder) {
@@ -399,21 +415,44 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
     }
 
     // Particles and icon effects of one player, for every game mode
+    // Index in GAME_MODES
+    static int gameModeOf(PlayerObject* p) {
+        if (p->m_isShip) return 1;
+        if (p->m_isBall) return 2;
+        if (p->m_isBird) return 3;
+        if (p->m_isDart) return 4;
+        if (p->m_isRobot) return 5;
+        if (p->m_isSpider) return 6;
+        if (p->m_isSwing) return 7;
+        return 0;
+    }
+
     static void applyPlayerEffects(PlayerObject* p, bool doParticles, bool doEffects) {
         if (!p) return;
+        int mode = gameModeOf(p);
         if (doParticles) {
-            CCNode* particles[] = {
-                p->m_playerGroundParticles, p->m_trailingParticles, p->m_shipClickParticles,
-                p->m_vehicleGroundParticles, p->m_ufoClickParticles, p->m_robotBurstParticles,
-                p->m_dashParticles, p->m_swingBurstParticles1, p->m_swingBurstParticles2,
-                p->m_landParticles0, p->m_landParticles1,
+            bool hide = s.noParticles && s.partModes[mode];
+            auto set = [&](int type, std::initializer_list<CCNode*> nodes) {
+                for (auto n : nodes) if (n) n->setVisible(!(hide && s.partTypes[type]));
             };
-            for (auto n : particles) if (n) n->setVisible(!s.noParticles);
+            set(0, {p->m_playerGroundParticles, p->m_vehicleGroundParticles});
+            set(1, {p->m_trailingParticles});
+            set(2, {p->m_shipClickParticles, p->m_ufoClickParticles, p->m_robotBurstParticles,
+                    p->m_swingBurstParticles1, p->m_swingBurstParticles2});
+            set(3, {p->m_landParticles0, p->m_landParticles1});
+            set(4, {p->m_dashParticles});
         }
         if (doEffects) {
-            CCNode* effects[] = {p->m_regularTrail, p->m_shipStreak, p->m_waveTrail, p->m_ghostTrail};
-            for (auto n : effects) if (n) n->setVisible(!s.noIconEffects);
-            if (s.noIconEffects && p->m_dashFireSprite) p->m_dashFireSprite->setVisible(false);
+            bool hide = s.noIconEffects && s.fxModes[mode];
+            auto set = [&](int type, CCNode* n) {
+                if (n) n->setVisible(!(hide && s.fxTypes[type]));
+            };
+            set(0, p->m_regularTrail);
+            set(1, p->m_waveTrail);
+            set(2, p->m_shipStreak);
+            set(3, p->m_ghostTrail);
+            // The dash fire is shown by the game itself: only ever hide it
+            if (hide && s.fxTypes[4] && p->m_dashFireSprite) p->m_dashFireSprite->setVisible(false);
         }
     }
 
