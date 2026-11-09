@@ -121,7 +121,7 @@ class TanzaniteMenu : public Popup {
         title->setAnchorPoint({0.f, 0.5f});
         title->setPosition({28.f, BAR_H / 2.f + 1.f});
         m_bar->addChild(title);
-        auto version = makeLabel("v1.8.0", "chatFont.fnt", 0.45f, {170, 160, 210});
+        auto version = makeLabel("v1.8.1", "chatFont.fnt", 0.45f, {170, 160, 210});
         version->setAnchorPoint({1.f, 0.5f});
         version->setPosition({logoW - 5.f, BAR_H / 2.f - 1.f});
         m_bar->addChild(version);
@@ -728,7 +728,7 @@ class TanzaniteMenu : public Popup {
 
     void buildInfo() {
         float y = m_top;
-        addText("Tanzanite v1.8.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.8.1", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
             OPEN_HINT,

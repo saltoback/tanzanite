@@ -42,7 +42,6 @@ namespace tanzanite {
         bool lblBestRun = false;
         bool bestRunAccurate = true;    // Best Run with 2 decimals
         bool speedhackMusic = true;     // music follows the speedhack
-        bool simpleEditor = true;       // Simple Editor panel in the level editor
         bool noParticles = false;       // hide the player's particles
         bool noIconEffects = false;     // hide trails, wave trail, ship fire, ghost trail
         // Which game modes and which kinds are hidden (the "+" of each option)
