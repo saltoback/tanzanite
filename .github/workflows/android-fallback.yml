@@ -71,9 +71,12 @@ jobs:
           geode sdk install "$GITHUB_WORKSPACE/geode-sdk" || true
 
           # CPM normally downloads itself from a release link: provide it beforehand
-          CPM_VERSION=$(grep -oP 'set\(CPM_DOWNLOAD_VERSION \K[0-9.]+' "$GITHUB_WORKSPACE/geode-sdk/cmake/CPM.cmake")
+          # (Geode's dependencies each pin their own CPM version, so fetch them all)
           mkdir -p "$GITHUB_WORKSPACE/cpm-cache/cpm"
-          fetch-asset cpm-cmake/CPM.cmake "v$CPM_VERSION" CPM.cmake "$GITHUB_WORKSPACE/cpm-cache/cpm/CPM_$CPM_VERSION.cmake"
+          for tag in $(curl -sf -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/cpm-cmake/CPM.cmake/releases?per_page=100" | jq -r '.[].tag_name'); do
+            fetch-asset cpm-cmake/CPM.cmake "$tag" CPM.cmake "$GITHUB_WORKSPACE/cpm-cache/cpm/CPM_${tag#v}.cmake" || echo "skip $tag"
+          done
+          ls "$GITHUB_WORKSPACE/cpm-cache/cpm"
           echo "CPM_SOURCE_CACHE=$GITHUB_WORKSPACE/cpm-cache" >> $GITHUB_ENV
 
       - name: Build
