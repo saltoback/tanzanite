@@ -10,6 +10,7 @@
 #include <Geode/utils/Keyboard.hpp>
 
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <deque>
@@ -47,6 +48,22 @@ void tanzanite::load() {
     s.lblBestRun      = m->getSavedValue<bool>("lbl-best-run", false);
     s.bestRunAccurate = m->getSavedValue<bool>("best-run-accurate", true);
     s.speedhackMusic  = m->getSavedValue<bool>("speedhack-music", true);
+    s.noParticles     = m->getSavedValue<bool>("no-particles", false);
+    s.noIconEffects   = m->getSavedValue<bool>("no-icon-effects", false);
+    s.labelOrder.clear();
+    {
+        // Saved as "0,1,2,..."
+        auto text = m->getSavedValue<std::string>("label-order", "");
+        size_t start = 0;
+        while (start < text.size()) {
+            size_t end = text.find(',', start);
+            if (end == std::string::npos) end = text.size();
+            auto part = text.substr(start, end - start);
+            if (!part.empty()) s.labelOrder.push_back(std::atoi(part.c_str()));
+            start = end + 1;
+        }
+    }
+    fixLabelOrder();
     s.message         = m->getSavedValue<std::string>("message", "Tanzanite");
     s.corner          = m->getSavedValue<int>("corner", TopLeft);
     s.labelScale      = m->getSavedValue<float>("label-scale", 1.0f);
@@ -77,6 +94,16 @@ void tanzanite::save() {
     m->setSavedValue("lbl-best-run", s.lblBestRun);
     m->setSavedValue("best-run-accurate", s.bestRunAccurate);
     m->setSavedValue("speedhack-music", s.speedhackMusic);
+    m->setSavedValue("no-particles", s.noParticles);
+    m->setSavedValue("no-icon-effects", s.noIconEffects);
+    {
+        std::string order;
+        for (int id : s.labelOrder) {
+            if (!order.empty()) order += ",";
+            order += std::to_string(id);
+        }
+        m->setSavedValue("label-order", order);
+    }
     m->setSavedValue("message", s.message);
     m->setSavedValue("corner", s.corner);
     m->setSavedValue("label-scale", s.labelScale);
@@ -214,35 +241,45 @@ public:
         // Lines to show
         std::vector<std::pair<std::string, ccColor3B>> lines;
         const ccColor3B white = {255, 255, 255};
-        if (s.lblCheat) {
-            // Stays on "Cheats" for the whole attempt, even if the cheat is turned off
-            if (attemptCheated()) {
-                lines.push_back({safeActive() ? "Cheats (Safe Mode)" : "Cheats", {255, 80, 80}});
-            } else {
-                lines.push_back({"Legit", {120, 255, 150}});
+        // In the order chosen in the menu
+        for (int id : s.labelOrder) {
+            if (!*labelEnabled(id)) continue;
+            switch (id) {
+                case LblCheat:
+                    // Stays on "Cheats" for the whole attempt, even if the cheat is turned off
+                    if (attemptCheated()) {
+                        lines.push_back({safeActive() ? "Cheats (Safe Mode)" : "Cheats", {255, 80, 80}});
+                    } else {
+                        lines.push_back({"Legit", {120, 255, 150}});
+                    }
+                    break;
+                case LblFps: lines.push_back({fmt::format("FPS: {}", static_cast<int>(m_fps + 0.5f)), white}); break;
+                case LblCps: lines.push_back({fmt::format("CPS: {} / {}", stats.cps, stats.maxCps), white}); break;
+                case LblNoclipAcc: lines.push_back({fmt::format("Accuracy: {:.2f}%", stats.noclipAccuracy()), white}); break;
+                case LblNoclipDeaths: lines.push_back({fmt::format("Deaths: {}", stats.deaths), white}); break;
+                case LblAttempts: lines.push_back({fmt::format("Attempt {}", m_pl->m_attempts), white}); break;
+                case LblJumps: lines.push_back({fmt::format("Jumps: {}", m_pl->m_jumps), white}); break;
+                case LblTime: lines.push_back({formatTime(m_pl->m_gameState.m_levelTime), white}); break;
+                case LblClock: lines.push_back({clockString(), white}); break;
+                case LblBestRun: {
+                    std::string text = "Best Run: none";
+                    if (bestRun.bestTo >= 0.f) {
+                        auto pct = [](float v) {
+                            return s.bestRunAccurate ? fmt::format("{:.2f}", v) : fmt::format("{}", static_cast<int>(v));
+                        };
+                        text = bestRun.bestFrom > 0.f
+                            ? fmt::format("Best Run: {}-{}%", pct(bestRun.bestFrom), pct(bestRun.bestTo))
+                            : fmt::format("Best Run: {}%", pct(bestRun.bestTo));
+                    }
+                    lines.push_back({text, white});
+                    break;
+                }
+                case LblMessage:
+                    if (!s.message.empty()) lines.push_back({s.message, PURPLE});
+                    break;
+                default: break;
             }
         }
-        if (s.lblFps) lines.push_back({fmt::format("FPS: {}", static_cast<int>(m_fps + 0.5f)), white});
-        if (s.lblCps) lines.push_back({fmt::format("CPS: {} / {}", stats.cps, stats.maxCps), white});
-        if (s.lblNoclipAcc) lines.push_back({fmt::format("Accuracy: {:.2f}%", stats.noclipAccuracy()), white});
-        if (s.lblNoclipDeaths) lines.push_back({fmt::format("Deaths: {}", stats.deaths), white});
-        if (s.lblAttempts) lines.push_back({fmt::format("Attempt {}", m_pl->m_attempts), white});
-        if (s.lblJumps) lines.push_back({fmt::format("Jumps: {}", m_pl->m_jumps), white});
-        if (s.lblTime) lines.push_back({formatTime(m_pl->m_gameState.m_levelTime), white});
-        if (s.lblClock) lines.push_back({clockString(), white});
-        if (s.lblBestRun) {
-            std::string text = "Best Run: none";
-            if (bestRun.bestTo >= 0.f) {
-                auto pct = [](float v) {
-                    return s.bestRunAccurate ? fmt::format("{:.2f}", v) : fmt::format("{}", static_cast<int>(v));
-                };
-                text = bestRun.bestFrom > 0.f
-                    ? fmt::format("Best Run: {}-{}%", pct(bestRun.bestFrom), pct(bestRun.bestTo))
-                    : fmt::format("Best Run: {}%", pct(bestRun.bestTo));
-            }
-            lines.push_back({text, white});
-        }
-        if (s.lblMessage && !s.message.empty()) lines.push_back({s.message, PURPLE});
 
         // Bot status: always shown while the bot or the frame stepper is on
         if (bot::macroMode) {
@@ -293,6 +330,8 @@ public:
 class $modify(TanzanitePlayLayer, PlayLayer) {
     struct Fields {
         bool hitboxesOn = false;
+        bool particlesHidden = false;
+        bool effectsHidden = false;
     };
 
     bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
@@ -348,7 +387,34 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
             m_fields->hitboxesOn = false;
         }
 
+        // No Particles / No Icon Effects (made visible again once when turned off)
+        bool doParticles = s.noParticles || m_fields->particlesHidden;
+        bool doEffects = s.noIconEffects || m_fields->effectsHidden;
+        applyPlayerEffects(m_player1, doParticles, doEffects);
+        applyPlayerEffects(m_player2, doParticles, doEffects);
+        m_fields->particlesHidden = s.noParticles;
+        m_fields->effectsHidden = s.noIconEffects;
+
         traj::update(this);
+    }
+
+    // Particles and icon effects of one player, for every game mode
+    static void applyPlayerEffects(PlayerObject* p, bool doParticles, bool doEffects) {
+        if (!p) return;
+        if (doParticles) {
+            CCNode* particles[] = {
+                p->m_playerGroundParticles, p->m_trailingParticles, p->m_shipClickParticles,
+                p->m_vehicleGroundParticles, p->m_ufoClickParticles, p->m_robotBurstParticles,
+                p->m_dashParticles, p->m_swingBurstParticles1, p->m_swingBurstParticles2,
+                p->m_landParticles0, p->m_landParticles1,
+            };
+            for (auto n : particles) if (n) n->setVisible(!s.noParticles);
+        }
+        if (doEffects) {
+            CCNode* effects[] = {p->m_regularTrail, p->m_shipStreak, p->m_waveTrail, p->m_ghostTrail};
+            for (auto n : effects) if (n) n->setVisible(!s.noIconEffects);
+            if (s.noIconEffects && p->m_dashFireSprite) p->m_dashFireSprite->setVisible(false);
+        }
     }
 
     // Noclip: ignore deaths (except the game's own anticheat spike)

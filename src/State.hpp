@@ -3,6 +3,7 @@
 
 #include <Geode/Geode.hpp>
 #include <string>
+#include <vector>
 
 namespace tanzanite {
     using namespace geode::prelude;
@@ -41,6 +42,9 @@ namespace tanzanite {
         bool lblBestRun = false;
         bool bestRunAccurate = true;    // Best Run with 2 decimals
         bool speedhackMusic = true;     // music follows the speedhack
+        bool noParticles = false;       // hide the player's particles
+        bool noIconEffects = false;     // hide trails, wave trail, ship fire, ghost trail
+        std::vector<int> labelOrder;    // order of the labels on screen (LabelId)
         std::string message = "Tanzanite";
         int corner = TopLeft;
         float labelScale = 1.0f;
@@ -48,6 +52,47 @@ namespace tanzanite {
     };
 
     inline State s;
+
+    // Labels, in their default order
+    enum LabelId {
+        LblCheat = 0, LblFps, LblCps, LblNoclipAcc, LblNoclipDeaths, LblAttempts,
+        LblJumps, LblTime, LblClock, LblBestRun, LblMessage, LABEL_COUNT
+    };
+
+    inline char const* labelName(int id) {
+        static char const* names[LABEL_COUNT] = {
+            "Cheat Indicator", "FPS", "CPS", "Noclip Accuracy", "Noclip Deaths", "Attempts",
+            "Jumps", "Level Time", "Clock", "Best Run", "Custom Message",
+        };
+        return (id >= 0 && id < LABEL_COUNT) ? names[id] : "?";
+    }
+
+    inline bool* labelEnabled(int id) {
+        switch (id) {
+            case LblCheat: return &s.lblCheat;
+            case LblFps: return &s.lblFps;
+            case LblCps: return &s.lblCps;
+            case LblNoclipAcc: return &s.lblNoclipAcc;
+            case LblNoclipDeaths: return &s.lblNoclipDeaths;
+            case LblAttempts: return &s.lblAttempts;
+            case LblJumps: return &s.lblJumps;
+            case LblTime: return &s.lblTime;
+            case LblClock: return &s.lblClock;
+            case LblBestRun: return &s.lblBestRun;
+            default: return &s.lblMessage;
+        }
+    }
+
+    // Keeps the saved order valid: no duplicates, every label exactly once
+    inline void fixLabelOrder() {
+        std::vector<int> fixed;
+        std::vector<bool> seen(LABEL_COUNT, false);
+        for (int id : s.labelOrder) {
+            if (id >= 0 && id < LABEL_COUNT && !seen[id]) { seen[id] = true; fixed.push_back(id); }
+        }
+        for (int id = 0; id < LABEL_COUNT; id++) if (!seen[id]) fixed.push_back(id);
+        s.labelOrder = fixed;
+    }
 
     // Stats for the current attempt (reset on every new attempt)
     struct Stats {
