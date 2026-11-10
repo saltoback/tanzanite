@@ -41,6 +41,7 @@ namespace tanzanite {
         bool lblMessage = false;
         bool lblBestRun = false;
         bool bestRunAccurate = true;    // Best Run with 2 decimals
+        bool attemptsTotal = false;     // Attempts label: total on the level
         bool speedhackMusic = true;     // music follows the speedhack
         bool noParticles = false;       // hide the player's particles
         bool noIconEffects = false;     // hide trails, wave trail, ship fire, ghost trail

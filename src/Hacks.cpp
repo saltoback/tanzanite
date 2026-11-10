@@ -47,6 +47,7 @@ void tanzanite::load() {
     s.lblMessage      = m->getSavedValue<bool>("lbl-message", false);
     s.lblBestRun      = m->getSavedValue<bool>("lbl-best-run", false);
     s.bestRunAccurate = m->getSavedValue<bool>("best-run-accurate", true);
+    s.attemptsTotal   = m->getSavedValue<bool>("attempts-total", false);
     s.speedhackMusic  = m->getSavedValue<bool>("speedhack-music", true);
     s.noParticles     = m->getSavedValue<bool>("no-particles", false);
     s.noIconEffects   = m->getSavedValue<bool>("no-icon-effects", false);
@@ -101,6 +102,7 @@ void tanzanite::save() {
     m->setSavedValue("lbl-message", s.lblMessage);
     m->setSavedValue("lbl-best-run", s.lblBestRun);
     m->setSavedValue("best-run-accurate", s.bestRunAccurate);
+    m->setSavedValue("attempts-total", s.attemptsTotal);
     m->setSavedValue("speedhack-music", s.speedhackMusic);
     m->setSavedValue("no-particles", s.noParticles);
     m->setSavedValue("no-icon-effects", s.noIconEffects);
@@ -273,7 +275,13 @@ public:
                 case LblCps: lines.push_back({fmt::format("CPS: {} / {}", stats.cps, stats.maxCps), white}); break;
                 case LblNoclipAcc: lines.push_back({fmt::format("Accuracy: {:.2f}%", stats.noclipAccuracy()), white}); break;
                 case LblNoclipDeaths: lines.push_back({fmt::format("Deaths: {}", stats.deaths), white}); break;
-                case LblAttempts: lines.push_back({fmt::format("Attempt {}", m_pl->m_attempts), white}); break;
+                case LblAttempts:
+                    if (s.attemptsTotal && m_pl->m_level) {
+                        lines.push_back({fmt::format("Total Attempts: {}", m_pl->m_level->m_attempts.value()), white});
+                    } else {
+                        lines.push_back({fmt::format("Attempt {}", m_pl->m_attempts), white});
+                    }
+                    break;
                 case LblJumps: lines.push_back({fmt::format("Jumps: {}", m_pl->m_jumps), white}); break;
                 case LblTime: lines.push_back({formatTime(m_pl->m_gameState.m_levelTime), white}); break;
                 case LblClock: lines.push_back({clockString(), white}); break;
