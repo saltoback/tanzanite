@@ -42,6 +42,14 @@ namespace tanzanite {
         bool lblBestRun = false;
         bool bestRunAccurate = true;    // Best Run with 2 decimals
         bool attemptsTotal = false;     // Attempts label: total on the level
+        // Auto Deafen (Discord shortcut)
+        bool autoDeafen = false;
+        float deafenPercent = 50.f;
+        int deafenKey = 0x44;           // Windows virtual key (D)
+        bool deafenCtrl = true;
+        bool deafenShift = true;
+        bool deafenAlt = false;
+        bool undeafenOnDeath = true;
         bool speedhackMusic = true;     // music follows the speedhack
         bool noParticles = false;       // hide the player's particles
         bool noIconEffects = false;     // hide trails, wave trail, ship fire, ghost trail

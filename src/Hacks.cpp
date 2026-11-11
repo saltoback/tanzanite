@@ -1,5 +1,6 @@
 // Tanzanite — menu key, hacks and Mega Hack style labels
 #include "Bot.hpp"
+#include "Deafen.hpp"
 #include "Hud.hpp"
 #include "Menu.hpp"
 #include "State.hpp"
@@ -48,6 +49,13 @@ void tanzanite::load() {
     s.lblBestRun      = m->getSavedValue<bool>("lbl-best-run", false);
     s.bestRunAccurate = m->getSavedValue<bool>("best-run-accurate", true);
     s.attemptsTotal   = m->getSavedValue<bool>("attempts-total", false);
+    s.autoDeafen      = m->getSavedValue<bool>("auto-deafen", false);
+    s.deafenPercent   = m->getSavedValue<float>("deafen-percent", 50.f);
+    s.deafenKey       = m->getSavedValue<int>("deafen-key", 0x44);
+    s.deafenCtrl      = m->getSavedValue<bool>("deafen-ctrl", true);
+    s.deafenShift     = m->getSavedValue<bool>("deafen-shift", true);
+    s.deafenAlt       = m->getSavedValue<bool>("deafen-alt", false);
+    s.undeafenOnDeath = m->getSavedValue<bool>("undeafen-on-death", true);
     s.speedhackMusic  = m->getSavedValue<bool>("speedhack-music", true);
     s.noParticles     = m->getSavedValue<bool>("no-particles", false);
     s.noIconEffects   = m->getSavedValue<bool>("no-icon-effects", false);
@@ -103,6 +111,13 @@ void tanzanite::save() {
     m->setSavedValue("lbl-best-run", s.lblBestRun);
     m->setSavedValue("best-run-accurate", s.bestRunAccurate);
     m->setSavedValue("attempts-total", s.attemptsTotal);
+    m->setSavedValue("auto-deafen", s.autoDeafen);
+    m->setSavedValue("deafen-percent", s.deafenPercent);
+    m->setSavedValue("deafen-key", s.deafenKey);
+    m->setSavedValue("deafen-ctrl", s.deafenCtrl);
+    m->setSavedValue("deafen-shift", s.deafenShift);
+    m->setSavedValue("deafen-alt", s.deafenAlt);
+    m->setSavedValue("undeafen-on-death", s.undeafenOnDeath);
     m->setSavedValue("speedhack-music", s.speedhackMusic);
     m->setSavedValue("no-particles", s.noParticles);
     m->setSavedValue("no-icon-effects", s.noIconEffects);
@@ -142,6 +157,11 @@ $on_mod(Loaded) {
 
         // Don't react while typing in a text field
         if (CCIMEDispatcher::sharedDispatcher()->hasDelegate()) return ListenerResult::Propagate;
+
+        // The menu is waiting for the Auto Deafen key
+        if (deafen::capturing && data.action == Action::Press) {
+            if (deafen::capture(static_cast<int>(data.native.code))) return ListenerResult::Stop;
+        }
 
         // Frame stepper: F advances one physics tick (hold it to keep stepping)
         if (bot::stepper && data.key == KEY_F && PlayLayer::get()) {
@@ -375,11 +395,13 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
         PlayLayer::resetLevel();
         stats.reset();
         bestRun.start = this->getCurrentPercent();   // start pos / checkpoint
+        deafen::onReset();
         bot::onReset(this);
     }
 
     void onQuit() {
         stats.reset();
+        deafen::onQuit();
         bot::onQuit();
         traj::onQuit();
         hud::onQuit();
@@ -419,6 +441,7 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
         m_fields->particlesHidden = s.noParticles;
         m_fields->effectsHidden = s.noIconEffects;
 
+        deafen::onUpdate(this);
         traj::update(this);
     }
 

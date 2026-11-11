@@ -11,7 +11,7 @@ The menu is a bar of categories at the top of the screen: click one to unroll it
 | Category | Options |
 |---|---|
 | Player | Noclip, Speedhack (speed 0.05 to 10, presets), Show Hitboxes, Show Trajectory |
-| Level | Safe Mode, Auto Safe Mode (on by default), Accurate Percentage |
+| Level | Safe Mode, Auto Safe Mode (on by default), Accurate Percentage, Auto Deafen for Discord (PC: presses your deafen shortcut at a chosen %) |
 | Labels | Cheat Indicator, FPS, CPS, Noclip Accuracy, Noclip Deaths, Attempts, Jumps, Level Time, Clock, Best Run, Custom Message — adjustable order, corner, size and opacity |
 | Bot | Enter / Exit Macro Mode, saved macros list, Position Fix, Show Trajectory |
 | Info | Shortcuts, version, repository link |

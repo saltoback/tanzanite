@@ -1,6 +1,7 @@
 // Tanzanite — the menu (categories, translucent panel, purple borders, logo)
 #include "Menu.hpp"
 #include "Bot.hpp"
+#include "Deafen.hpp"
 #include "Hud.hpp"
 #include "Ui.hpp"
 #include "State.hpp"
@@ -45,7 +46,7 @@ class TanzaniteMenu : public Popup {
     static constexpr float CX = 14.f;         // left edge of the window content
     static constexpr float CW = 284.f;        // width of the window content
     // Window height for each category
-    static constexpr float WH[TABS] = {222.f, 134.f, 236.f, 190.f, 164.f};
+    static constexpr float WH[TABS] = {222.f, 250.f, 236.f, 190.f, 164.f};
 
     CCSize m_win;
     CCNode* m_bar = nullptr;
@@ -75,6 +76,14 @@ class TanzaniteMenu : public Popup {
     CCLabelBMFont* m_opacityLbl = nullptr;
     TextInput* m_speedInput = nullptr;
     int m_macroIndex = 0;
+    int m_deafenVersion = 0;
+    TextInput* m_deafenInput = nullptr;
+
+    void checkDeafenKey(float) {
+        if (m_deafenVersion == deafen::version) return;
+        m_deafenVersion = deafen::version;
+        if (m_tab == 1) this->buildTab(1);
+    }
     std::string m_macroName;
 
     CCMenu* makeMenu(CCSize size) {
@@ -121,7 +130,7 @@ class TanzaniteMenu : public Popup {
         title->setAnchorPoint({0.f, 0.5f});
         title->setPosition({28.f, BAR_H / 2.f + 1.f});
         m_bar->addChild(title);
-        auto version = makeLabel("v1.8.2", "chatFont.fnt", 0.45f, {170, 160, 210});
+        auto version = makeLabel("v1.9.0", "chatFont.fnt", 0.45f, {170, 160, 210});
         version->setAnchorPoint({1.f, 0.5f});
         version->setPosition({logoW - 5.f, BAR_H / 2.f - 1.f});
         m_bar->addChild(version);
@@ -186,6 +195,9 @@ class TanzaniteMenu : public Popup {
         m_popover->addChild(m_popMenu);
         m_popNodes = CCNode::create();
         m_popover->addChild(m_popNodes);
+
+        // Redraw the Level tab when the Auto Deafen key was just set
+        this->schedule(schedule_selector(TanzaniteMenu::checkDeafenKey), 0.1f);
 
         // Only the categories at first
         return true;
@@ -561,6 +573,44 @@ class TanzaniteMenu : public Popup {
         y -= 40.f;
         addSwitch("Accurate Percentage", &s.accuratePct, CX, y, CW);
         addText("Shows the percentage with 2 decimals", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        y -= 40.f;
+
+        // Auto Deafen (Discord)
+        if (!deafen::supported()) {
+            addText("Auto Deafen (Discord): PC only", CX, y, "bigFont.fnt", 0.34f, {170, 160, 210});
+            return;
+        }
+        addSwitch("Auto Deafen", &s.autoDeafen, CX, y, CW);
+        addText("Presses your Discord deafen shortcut at the chosen %", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
+        y -= 36.f;
+
+        // At what %
+        addText("At", CX, y, "bigFont.fnt", 0.36f, {255, 255, 255});
+        m_deafenInput = TextInput::create(70.f, "50");
+        m_deafenInput->setCommonFilter(CommonFilter::Float);
+        m_deafenInput->setString(fmt::format("{:g}", s.deafenPercent).c_str());
+        m_deafenInput->setScale(0.7f);
+        m_deafenInput->setPosition({CX + 50.f, y});
+        m_deafenInput->setCallback([](std::string const& str) {
+            float v = std::strtof(str.c_str(), nullptr);
+            s.deafenPercent = std::clamp(v, 0.f, 100.f);
+            tanzanite::save();
+        });
+        m_contentNodes->addChild(m_deafenInput);
+        addText("%", CX + 80.f, y, "bigFont.fnt", 0.36f, {255, 255, 255});
+        float colW = (CW - 8.f) / 2.f;
+        addSwitch("Undeafen on death", &s.undeafenOnDeath, CX + colW + 8.f, y, colW, 0.3f);
+        y -= 24.f;
+
+        // Shortcut: click, then press the keys you set in Discord
+        addText("Shortcut", CX, y, "bigFont.fnt", 0.36f, {255, 255, 255});
+        std::string keyText = deafen::capturing ? "Press your keys..." : deafen::shortcutName();
+        addPill(keyText.c_str(), CX + 134.f, y, 132.f, deafen::capturing, [this]() {
+            deafen::capturing = !deafen::capturing;
+            deafen::version++;
+        });
+        addPill("Test", CX + CW - 22.f, y, 44.f, false, []() { deafen::press(); });
+        addText("Set the same shortcut in Discord: Keybinds > Toggle Deafen", CX, y - 14.f, "chatFont.fnt", 0.45f, {160, 150, 200});
     }
 
     void buildLabels() {
@@ -729,7 +779,7 @@ class TanzaniteMenu : public Popup {
 
     void buildInfo() {
         float y = m_top;
-        addText("Tanzanite v1.8.2", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.9.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
             OPEN_HINT,
@@ -766,6 +816,7 @@ public:
 
     void onClose(CCObject* sender) override {
         if (s_instance == this) s_instance = nullptr;
+        deafen::capturing = false;
         Popup::onClose(sender);
     }
 
