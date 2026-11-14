@@ -50,6 +50,7 @@ namespace tanzanite {
         bool deafenShift = true;
         bool deafenAlt = false;
         bool undeafenOnDeath = true;
+        bool startposSwitcher = true;   // Q / D or arrows to switch start positions
         bool speedhackMusic = true;     // music follows the speedhack
         bool noParticles = false;       // hide the player's particles
         bool noIconEffects = false;     // hide trails, wave trail, ship fire, ghost trail

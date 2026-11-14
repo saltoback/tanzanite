@@ -1,6 +1,7 @@
 // Tanzanite — macro mode: the in-level macro interface
 #include "Hud.hpp"
 #include "Bot.hpp"
+#include "StartPos.hpp"
 #include "State.hpp"
 #include "Ui.hpp"
 
@@ -296,7 +297,7 @@ bool hud::blocksPoint(CCPoint world) {
 // Clicks on the interface must press its buttons, not make the player jump
 class $modify(HudUILayer, UILayer) {
     bool ccTouchBegan(CCTouch* touch, CCEvent* event) {
-        if (hud::blocksPoint(touch->getLocation())) return false;
+        if (hud::blocksPoint(touch->getLocation()) || startpos::blocksPoint(touch->getLocation())) return false;
         return UILayer::ccTouchBegan(touch, event);
     }
 };

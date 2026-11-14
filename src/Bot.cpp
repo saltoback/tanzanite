@@ -1,6 +1,7 @@
 // Tanzanite — macro bot (record / play) and frame stepper
 #include "Bot.hpp"
 #include "Hud.hpp"
+#include "StartPos.hpp"
 #include "PlayerSnapshot.hpp"
 #include "State.hpp"
 
@@ -362,7 +363,7 @@ class $modify(BotGameLayer, GJBaseGameLayer) {
         // still jump wherever the cursor is.
 #ifdef GEODE_IS_WINDOWS
         if (down && !s_injecting && (GetAsyncKeyState(VK_LBUTTON) & 0x8000)
-            && hud::blocksPoint(geode::cocos::getMousePos())) return;
+            && (hud::blocksPoint(geode::cocos::getMousePos()) || startpos::blocksPoint(geode::cocos::getMousePos()))) return;
 #endif
 
         if (down) tanzanite::onClick();

@@ -46,7 +46,7 @@ class TanzaniteMenu : public Popup {
     static constexpr float CX = 14.f;         // left edge of the window content
     static constexpr float CW = 284.f;        // width of the window content
     // Window height for each category
-    static constexpr float WH[TABS] = {222.f, 250.f, 236.f, 190.f, 164.f};
+    static constexpr float WH[TABS] = {256.f, 250.f, 236.f, 190.f, 164.f};
 
     CCSize m_win;
     CCNode* m_bar = nullptr;
@@ -130,7 +130,7 @@ class TanzaniteMenu : public Popup {
         title->setAnchorPoint({0.f, 0.5f});
         title->setPosition({28.f, BAR_H / 2.f + 1.f});
         m_bar->addChild(title);
-        auto version = makeLabel("v1.9.0", "chatFont.fnt", 0.45f, {170, 160, 210});
+        auto version = makeLabel("v1.10.0", "chatFont.fnt", 0.45f, {170, 160, 210});
         version->setAnchorPoint({1.f, 0.5f});
         version->setPosition({logoW - 5.f, BAR_H / 2.f - 1.f});
         m_bar->addChild(version);
@@ -561,6 +561,10 @@ class TanzaniteMenu : public Popup {
         addSwitch("No Icon Effects", &s.noIconEffects, CX + colW + 8.f, y, colW, 0.32f, nullptr,
                   sections(s.fxModes, s.fxTypes, FX_TYPES, "Effects"));
         addText("Hides the icon's particles / trails, wave trail, fire, ghost trail", CX, y - 13.f, "chatFont.fnt", 0.45f, {160, 150, 200});
+        y -= 34.f;
+
+        addSwitch("StartPos Switcher", &s.startposSwitcher, CX, y, CW);
+        addText("Switch start positions with Q / D or the arrows at the bottom", CX, y - 13.f, "chatFont.fnt", 0.5f, {160, 150, 200});
     }
 
     void buildLevel() {
@@ -779,7 +783,7 @@ class TanzaniteMenu : public Popup {
 
     void buildInfo() {
         float y = m_top;
-        addText("Tanzanite v1.9.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
+        addText("Tanzanite v1.10.0", CX, y, "bigFont.fnt", 0.45f, PURPLE);
         y -= 24.f;
         char const* lines[] = {
             OPEN_HINT,

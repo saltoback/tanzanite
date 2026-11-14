@@ -3,6 +3,7 @@
 #include "Deafen.hpp"
 #include "Hud.hpp"
 #include "Menu.hpp"
+#include "StartPos.hpp"
 #include "State.hpp"
 #include "Trajectory.hpp"
 
@@ -56,6 +57,7 @@ void tanzanite::load() {
     s.deafenShift     = m->getSavedValue<bool>("deafen-shift", true);
     s.deafenAlt       = m->getSavedValue<bool>("deafen-alt", false);
     s.undeafenOnDeath = m->getSavedValue<bool>("undeafen-on-death", true);
+    s.startposSwitcher = m->getSavedValue<bool>("startpos-switcher", true);
     s.speedhackMusic  = m->getSavedValue<bool>("speedhack-music", true);
     s.noParticles     = m->getSavedValue<bool>("no-particles", false);
     s.noIconEffects   = m->getSavedValue<bool>("no-icon-effects", false);
@@ -118,6 +120,7 @@ void tanzanite::save() {
     m->setSavedValue("deafen-shift", s.deafenShift);
     m->setSavedValue("deafen-alt", s.deafenAlt);
     m->setSavedValue("undeafen-on-death", s.undeafenOnDeath);
+    m->setSavedValue("startpos-switcher", s.startposSwitcher);
     m->setSavedValue("speedhack-music", s.speedhackMusic);
     m->setSavedValue("no-particles", s.noParticles);
     m->setSavedValue("no-icon-effects", s.noIconEffects);
@@ -170,6 +173,17 @@ $on_mod(Loaded) {
         }
 
         if (data.action != Action::Press) return ListenerResult::Propagate;
+
+        // StartPos Switcher: Q = previous, D = next (not in platformer levels,
+        // where those keys move the player)
+        if (s.startposSwitcher && (data.key == KEY_Q || data.key == KEY_D)) {
+            auto pl = PlayLayer::get();
+            if (pl && !pl->m_isPlatformer && !pl->m_isPaused) {
+                int dir = data.key == KEY_Q ? -1 : 1;
+                geode::queueInMainThread([dir] { startpos::switchBy(dir); });
+                return ListenerResult::Stop;
+            }
+        }
 
         bool isMenuKey = data.native.extra == 0x29 || data.native.code == 0xDE;
         if (!isMenuKey) return ListenerResult::Propagate;
