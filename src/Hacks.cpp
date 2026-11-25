@@ -392,8 +392,8 @@ class $modify(TanzanitePlayLayer, PlayLayer) {
         bool effectsHidden = false;
     };
 
-    bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
-        if (!PlayLayer::init(level, useReplay, dontCreateObjects)) return false;
+    bool init(GJGameLevel* level, bool dontCreateObjects) {
+        if (!PlayLayer::init(level, dontCreateObjects)) return false;
         stats.reset();
         bestRun.clear();
         s_clicks.clear();

@@ -162,7 +162,7 @@ void bot::setStepper(bool on) {
 }
 
 fs::path bot::macroDir() {
-    auto dir = Mod::get()->getSaveDir().toStdPath() / "macros";
+    auto dir = Mod::get()->getSaveDir().toStdPath().unwrapOrDefault() / "macros";
     std::error_code ec;
     fs::create_directories(dir, ec);
     return dir;

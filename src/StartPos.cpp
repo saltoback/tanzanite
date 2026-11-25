@@ -91,13 +91,9 @@ void startpos::switchBy(int dir) {
     s_index = ((s_index + dir) % count + count) % count;
     StartPosObject* sp = s_index == 0 ? nullptr : s_list[s_index - 1];
 
-    pl->m_currentCheckpoint = nullptr;
-    pl->setStartPosObject(sp);
-    // A start position run never saves progress (same as the game)
-    pl->m_isTestMode = sp != nullptr;
-    if (pl->m_isPracticeMode) pl->resetLevelFromStart();
-    else pl->resetLevel();
-    pl->startMusic();
+    // GD 2.2091 has its own start position switch: it restarts there, sets
+    // test mode (no progress saved) and syncs the music
+    pl->switchToStartPosObject(sp);
 }
 
 bool startpos::blocksPoint(CCPoint world) {
@@ -107,11 +103,11 @@ bool startpos::blocksPoint(CCPoint world) {
 }
 
 class $modify(StartPosPlayLayer, PlayLayer) {
-    bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
+    bool init(GJGameLevel* level, bool dontCreateObjects) {
         s_list.clear();
         s_index = 0;
         s_ui = nullptr;
-        return PlayLayer::init(level, useReplay, dontCreateObjects);
+        return PlayLayer::init(level, dontCreateObjects);
     }
 
     void addObject(GameObject* object) {
