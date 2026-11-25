@@ -166,6 +166,9 @@ class $modify(TrajGameLayer, GJBaseGameLayer) {
         if (s_sim) return;
         GJBaseGameLayer::flipGravity(player, flip, noEffects);
     }
+    // Inlined into the game on Windows in 2.2091: they can only be hooked elsewhere
+    // (portals are already blocked by canBeActivatedByPlayer during the simulation)
+#ifndef GEODE_IS_WINDOWS
     void switchToRobotMode(PlayerObject* player, GameObject* object, bool noPortal) {
         if (s_sim) return;
         GJBaseGameLayer::switchToRobotMode(player, object, noPortal);
@@ -178,6 +181,7 @@ class $modify(TrajGameLayer, GJBaseGameLayer) {
         if (s_sim) return;
         GJBaseGameLayer::switchToSpiderMode(player, object, noPortal);
     }
+#endif
     void teleportPlayer(TeleportPortalObject* object, PlayerObject* player) {
         if (s_sim) return;
         GJBaseGameLayer::teleportPlayer(object, player);
