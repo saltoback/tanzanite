@@ -16,6 +16,7 @@
 #include <map>
 #include <sstream>
 #include <unordered_map>
+#include <asp/fs/std.hpp>
 
 #ifdef GEODE_IS_WINDOWS
 #include <Windows.h>
@@ -161,7 +162,7 @@ void bot::setStepper(bool on) {
 }
 
 fs::path bot::macroDir() {
-    auto dir = Mod::get()->getSaveDir() / "macros";
+    auto dir = Mod::get()->getSaveDir().toStdPath() / "macros";
     std::error_code ec;
     fs::create_directories(dir, ec);
     return dir;

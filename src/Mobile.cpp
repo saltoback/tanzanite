@@ -7,7 +7,6 @@
 #include "Menu.hpp"
 
 #include <algorithm>
-#include <Geode/modify/MenuLayer.hpp>
 #include <Geode/ui/OverlayManager.hpp>
 
 using namespace geode::prelude;
@@ -91,19 +90,11 @@ namespace {
         }
     };
 
-    bool s_added = false;
 }
 
-// Add the button once, as soon as the main menu exists
-class $modify(MobileMenuLayer, MenuLayer) {
-    bool init() {
-        if (!MenuLayer::init()) return false;
-        if (!s_added) {
-            s_added = true;
-            if (auto btn = MobileButton::create()) OverlayManager::get()->addChild(btn);
-        }
-        return true;
-    }
-};
+// The overlay is emptied every time textures reload: add the button each time
+$on_game(TexturesLoaded) {
+    if (auto btn = MobileButton::create()) OverlayManager::get()->addChild(btn);
+}
 
 #endif
